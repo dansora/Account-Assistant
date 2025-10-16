@@ -748,7 +748,7 @@ function App() {
     if (page === 'detail') {
       const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth, };
       const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period!](new Date(tx.date)));
-      const onBack = () => setView({ page: transactionType });
+      const onBack = () => setView({ page: transactionType! });
       const onViewHistory = () => setView({ page: 'history', transactionType });
 
       switch (period) {
