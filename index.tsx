@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 
@@ -18,6 +18,8 @@ type View = {
 };
 
 type Theme = 'light' | 'dark' | 'auto';
+type FontSize = 'small' | 'medium' | 'large';
+
 
 type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
 
@@ -33,6 +35,19 @@ const currencyMap: Record<Currency, string> = {
   'CHF': 'Fr',
   'INR': '₹',
 };
+
+const currencyToLocaleMap: Record<Currency, string> = {
+  'GBP': 'en-GB',
+  'USD': 'en-US',
+  'CAD': 'en-CA',
+  'AUD': 'en-AU',
+  'EUR': 'de-DE', // Using German locale as an example for EUR
+  'JPY': 'ja-JP',
+  'CNY': 'zh-CN',
+  'CHF': 'de-CH', // Swiss German
+  'INR': 'en-IN',
+};
+
 
 const dateUtils = {
   isToday: (date: Date) => {
@@ -59,6 +74,32 @@ const dateUtils = {
     const offsetDate = date.getDate() + firstDayOfMonth - 1;
     return Math.floor(offsetDate / 7) + 1;
   }
+};
+
+// --- Current Date Time Component ---
+const CurrentDateTime = ({ locale }: { locale: string }) => {
+    const [dateTime, setDateTime] = useState(new Date());
+
+    useEffect(() => {
+        const timerId = setInterval(() => setDateTime(new Date()), 1000);
+        return () => clearInterval(timerId);
+    }, []);
+
+    const formattedDateTime = dateTime.toLocaleString(locale, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+
+    return (
+        <div className="current-datetime">
+            <p>{formattedDateTime}</p>
+        </div>
+    );
 };
 
 
@@ -349,25 +390,79 @@ const HistoryPage = ({ transactions, type, onBack, currencySymbol }: {
     );
 };
 
+// --- Category Breakdown Component ---
+const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, type }: {
+    title: string;
+    transactions: Transaction[];
+    totalAmount: number;
+    currencySymbol: string;
+    type: 'income' | 'expense';
+}) => {
+    const breakdown = useMemo(() => {
+        if (totalAmount === 0) return [];
+        const grouped = transactions.reduce((acc, tx) => {
+            if (tx.type === type) {
+                 acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(grouped)
+            .map(([category, amount]) => ({
+                category,
+                amount,
+                percentage: (amount / totalAmount) * 100,
+            }))
+            .sort((a, b) => b.amount - a.amount);
+    }, [transactions, totalAmount, type]);
+
+    return (
+        <div className="category-breakdown-container">
+            <h3>{title}</h3>
+            {breakdown.length > 0 ? (
+                <ul className="category-list">
+                    {breakdown.map(({ category, amount, percentage }) => (
+                        <li key={category} className="category-item">
+                            <div className="category-info">
+                                <span className="category-name">{category}</span>
+                                <span className={`category-amount amount ${type}`}>{currencySymbol}{amount.toFixed(2)}</span>
+                            </div>
+                            <div className="progress-bar-container">
+                                <div
+                                    className={`progress-bar ${type}`}
+                                    style={{ width: `${percentage}%` }}
+                                    role="progressbar"
+                                    aria-valuenow={percentage}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`${category} accounts for ${percentage.toFixed(1)}%`}
+                                ></div>
+                            </div>
+                            <span className="category-percentage">{percentage.toFixed(1)}%</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : <p>No transactions for this period.</p>}
+        </div>
+    );
+};
+
 
 // --- Main Page Components ---
-const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange }: {
+const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange, locale }: {
   income: number;
   expenses: number;
   onNavClick: (page: 'income' | 'expense') => void;
   currencySymbol: string;
   currentPeriod: 'daily' | 'weekly' | 'monthly';
   onPeriodChange: (period: 'daily' | 'weekly' | 'monthly') => void;
+  locale: string;
 }) => {
   const balance = (income - expenses).toFixed(2);
   return (
     <div className="page-content">
+      <CurrentDateTime locale={locale} />
       <h2>Dashboard</h2>
-      <div className="period-selector">
-        <button onClick={() => onPeriodChange('daily')} className={currentPeriod === 'daily' ? 'active' : ''}>Daily</button>
-        <button onClick={() => onPeriodChange('weekly')} className={currentPeriod === 'weekly' ? 'active' : ''}>Weekly</button>
-        <button onClick={() => onPeriodChange('monthly')} className={currentPeriod === 'monthly' ? 'active' : ''}>Monthly</button>
-      </div>
       <div className="cards-list">
         <div className="income-card-styled income clickable" onClick={() => onNavClick('income')}>
           <div className="card-label"><h3>Income</h3></div>
@@ -382,23 +477,38 @@ const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod,
           <div className="card-value"><p className="amount">{currencySymbol}{balance}</p></div>
         </div>
       </div>
+      <div className="period-selector">
+        <button onClick={() => onPeriodChange('daily')} className={currentPeriod === 'daily' ? 'active' : ''}>Daily</button>
+        <button onClick={() => onPeriodChange('weekly')} className={currentPeriod === 'weekly' ? 'active' : ''}>Weekly</button>
+        <button onClick={() => onPeriodChange('monthly')} className={currentPeriod === 'monthly' ? 'active' : ''}>Monthly</button>
+      </div>
     </div>
   );
 };
 
-const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol }: {
+const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale }: {
   income: number;
   weeklyIncome: number;
   monthlyIncome: number;
   addIncome: (amount: number, category: string) => void;
   onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
   currencySymbol: string;
+  dailyTransactions: Transaction[];
+  weeklyTransactions: Transaction[];
+  monthlyTransactions: Transaction[];
+  locale: string;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
   const handleAddIncome = (amount: number, category: string) => { addIncome(amount, category); setIsModalOpen(false); };
+
+  const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
+  const currentTotal = period === 'daily' ? income : period === 'weekly' ? weeklyIncome : monthlyIncome;
+
   return (
     <div className="page-content">
+      <CurrentDateTime locale={locale} />
       <h2>Income</h2>
       <button className="action-button" onClick={() => setIsModalOpen(true)}>Add Income</button>
       <div className="cards-list">
@@ -415,6 +525,18 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
           <div className="card-value"><p className="amount">{currencySymbol}{monthlyIncome.toFixed(2)}</p></div>
         </div>
       </div>
+      <CategoryBreakdown 
+        title={`${period.charAt(0).toUpperCase() + period.slice(1)} Income Breakdown`}
+        transactions={currentTransactions}
+        totalAmount={currentTotal}
+        currencySymbol={currencySymbol}
+        type="income"
+      />
+      <div className="period-selector">
+        <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>Daily</button>
+        <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>Weekly</button>
+        <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>Monthly</button>
+      </div>
       <NumpadModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
@@ -427,19 +549,29 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
   );
 };
 
-const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol }: {
+const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale }: {
     expenses: number;
     weeklyExpenses: number;
     monthlyExpenses: number;
     addExpense: (amount: number, category: string) => void;
     onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
     currencySymbol: string;
+    dailyTransactions: Transaction[];
+    weeklyTransactions: Transaction[];
+    monthlyTransactions: Transaction[];
+    locale: string;
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
     const handleAddExpense = (amount: number, category: string) => { addExpense(amount, category); setIsModalOpen(false); };
+    
+    const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
+    const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
+
     return (
       <div className="page-content">
+        <CurrentDateTime locale={locale} />
         <h2>Expense</h2>
         <button className="action-button expense" onClick={() => setIsModalOpen(true)}>Add Expense</button>
          <div className="cards-list">
@@ -455,6 +587,18 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
             <div className="card-label"><h3>Monthly</h3></div>
             <div className="card-value"><p className="amount">{currencySymbol}{monthlyExpenses.toFixed(2)}</p></div>
           </div>
+        </div>
+        <CategoryBreakdown 
+            title={`${period.charAt(0).toUpperCase() + period.slice(1)} Expense Breakdown`}
+            transactions={currentTransactions}
+            totalAmount={currentTotal}
+            currencySymbol={currencySymbol}
+            type="expense"
+        />
+        <div className="period-selector">
+            <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>Daily</button>
+            <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>Weekly</button>
+            <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>Monthly</button>
         </div>
         <NumpadModal 
             isOpen={isModalOpen} 
@@ -548,11 +692,13 @@ const ContactModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
     );
 };
 
-const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange }: {
+const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange, fontSize, onFontSizeChange }: {
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     currency: Currency;
     onCurrencyChange: (currency: Currency) => void;
+    fontSize: FontSize;
+    onFontSizeChange: (size: FontSize) => void;
 }) => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
@@ -565,6 +711,14 @@ const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange }: {
           <button onClick={() => onThemeChange('light')} className={theme === 'light' ? 'active' : ''}>Light</button>
           <button onClick={() => onThemeChange('dark')} className={theme === 'dark' ? 'active' : ''}>Dark</button>
           <button onClick={() => onThemeChange('auto')} className={theme === 'auto' ? 'active' : ''}>Auto</button>
+        </div>
+      </div>
+      <div className="settings-group">
+        <h3>Font Size</h3>
+        <div className="theme-selector">
+          <button onClick={() => onFontSizeChange('small')} className={fontSize === 'small' ? 'active' : ''}>Small</button>
+          <button onClick={() => onFontSizeChange('medium')} className={fontSize === 'medium' ? 'active' : ''}>Medium</button>
+          <button onClick={() => onFontSizeChange('large')} className={fontSize === 'large' ? 'active' : ''}>Large</button>
         </div>
       </div>
       <div className="settings-group">
@@ -737,15 +891,47 @@ const Footer = ({ currentPage, onNavClick }: {
   );
 };
 
+const ScrollToTop = ({ mainRef }: { mainRef: React.RefObject<HTMLElement> }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    const handleScroll = () => {
+        if (mainRef.current) {
+            setIsVisible(mainRef.current.scrollTop > 300);
+        }
+    };
+
+    const scrollToTop = () => {
+        if (mainRef.current) {
+            mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    useEffect(() => {
+        const mainElement = mainRef.current;
+        mainElement?.addEventListener('scroll', handleScroll);
+        return () => mainElement?.removeEventListener('scroll', handleScroll);
+    }, [mainRef]);
+
+    if (!isVisible) return null;
+
+    return (
+        <button className="scroll-to-top-button" onClick={scrollToTop} aria-label="Scroll to top">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+        </button>
+    );
+};
+
 
 // --- Main App Component ---
 function App() {
+  const mainRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<View>({ page: 'main' });
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
   });
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
+  const [fontSize, setFontSize] = useState<FontSize>(() => (localStorage.getItem('fontSize') as FontSize) || 'medium');
   const [currency, setCurrency] = useState<Currency>(() => (localStorage.getItem('currency') as Currency) || 'GBP');
   const [mainViewPeriod, setMainViewPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
@@ -770,10 +956,19 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('fontSize', fontSize);
+    const sizeMap: Record<FontSize, string> = { small: '14px', medium: '16px', large: '18px' };
+    document.documentElement.style.fontSize = sizeMap[fontSize];
+  }, [fontSize]);
+
+
+  useEffect(() => {
     localStorage.setItem('currency', currency);
   }, [currency]);
 
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
+  const locale = useMemo(() => currencyToLocaleMap[currency], [currency]);
+
 
   const addTransaction = useCallback((amount: number, type: 'income' | 'expense', category: string) => {
     const newTransaction: Transaction = {
@@ -783,21 +978,33 @@ function App() {
     setTransactions(prev => [...prev, newTransaction]);
   }, []);
 
-  const { dailyIncome, weeklyIncome, monthlyIncome, dailyExpenses, weeklyExpenses, monthlyExpenses } = useMemo(() => {
+  const { 
+      dailyIncome, weeklyIncome, monthlyIncome, 
+      dailyExpenses, weeklyExpenses, monthlyExpenses,
+      dailyTransactions, weeklyTransactions, monthlyTransactions
+  } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
+    const filteredLists = {
+        dailyTransactions: [] as Transaction[],
+        weeklyTransactions: [] as Transaction[],
+        monthlyTransactions: [] as Transaction[]
+    };
     transactions.forEach(tx => {
       const date = new Date(tx.date);
       if (dateUtils.isToday(date)) {
+        filteredLists.dailyTransactions.push(tx);
         if (tx.type === 'income') totals.dailyIncome += tx.amount; else totals.dailyExpenses += tx.amount;
       }
       if (dateUtils.isThisWeek(date)) {
+        filteredLists.weeklyTransactions.push(tx);
         if (tx.type === 'income') totals.weeklyIncome += tx.amount; else totals.weeklyExpenses += tx.amount;
       }
       if (dateUtils.isThisMonth(date)) {
+        filteredLists.monthlyTransactions.push(tx);
         if (tx.type === 'income') totals.monthlyIncome += tx.amount; else totals.monthlyExpenses += tx.amount;
       }
     });
-    return totals;
+    return {...totals, ...filteredLists};
   }, [transactions]);
 
   const handleNavClick = (page: 'main' | 'income' | 'expense' | 'settings' | 'tax') => setView({ page });
@@ -832,6 +1039,10 @@ function App() {
                  addIncome={(amount, category) => addTransaction(amount, 'income', category)}
                  onCardClick={(period) => handleCardClick('income', period)}
                  currencySymbol={currencySymbol}
+                 dailyTransactions={dailyTransactions}
+                 weeklyTransactions={weeklyTransactions}
+                 monthlyTransactions={monthlyTransactions}
+                 locale={locale}
                />;
       case 'expense':
         return <ExpensePage 
@@ -839,9 +1050,13 @@ function App() {
                  addExpense={(amount, category) => addTransaction(amount, 'expense', category)}
                  onCardClick={(period) => handleCardClick('expense', period)}
                  currencySymbol={currencySymbol}
+                 dailyTransactions={dailyTransactions}
+                 weeklyTransactions={weeklyTransactions}
+                 monthlyTransactions={monthlyTransactions}
+                 locale={locale}
                />;
       case 'settings':
-        return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} />;
+        return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} />;
       case 'tax':
         return <TaxPage transactions={transactions} currencySymbol={currencySymbol} />;
       case 'main':
@@ -863,6 +1078,7 @@ function App() {
                  currencySymbol={currencySymbol} 
                  currentPeriod={mainViewPeriod}
                  onPeriodChange={setMainViewPeriod}
+                 locale={locale}
                />;
     }
   };
@@ -870,8 +1086,9 @@ function App() {
   return (
     <div className="app-container">
       <Header />
-      <main>{renderPage()}</main>
+      <main ref={mainRef}>{renderPage()}</main>
       <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} />
+      <ScrollToTop mainRef={mainRef} />
     </div>
   );
 }
