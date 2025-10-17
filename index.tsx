@@ -351,16 +351,23 @@ const HistoryPage = ({ transactions, type, onBack, currencySymbol }: {
 
 
 // --- Main Page Components ---
-const MainPage = ({ income, expenses, onNavClick, currencySymbol }: {
+const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange }: {
   income: number;
   expenses: number;
   onNavClick: (page: 'income' | 'expense') => void;
   currencySymbol: string;
+  currentPeriod: 'daily' | 'weekly' | 'monthly';
+  onPeriodChange: (period: 'daily' | 'weekly' | 'monthly') => void;
 }) => {
   const balance = (income - expenses).toFixed(2);
   return (
     <div className="page-content">
       <h2>Dashboard</h2>
+      <div className="period-selector">
+        <button onClick={() => onPeriodChange('daily')} className={currentPeriod === 'daily' ? 'active' : ''}>Daily</button>
+        <button onClick={() => onPeriodChange('weekly')} className={currentPeriod === 'weekly' ? 'active' : ''}>Weekly</button>
+        <button onClick={() => onPeriodChange('monthly')} className={currentPeriod === 'monthly' ? 'active' : ''}>Monthly</button>
+      </div>
       <div className="cards-list">
         <div className="income-card-styled income clickable" onClick={() => onNavClick('income')}>
           <div className="card-label"><h3>Income</h3></div>
@@ -461,32 +468,122 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
     );
 };
 
+// --- Contact Modal Component ---
+const ContactModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) => {
+    const [contactName, setContactName] = useState('');
+    const [contactEmail, setContactEmail] = useState('');
+    const [contactPhone, setContactPhone] = useState('');
+    const [contactMessage, setContactMessage] = useState('');
+
+    const handleContactSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const subject = `Message from ${contactName} via Account Assistant`;
+        const body = `Name: ${contactName}\nEmail: ${contactEmail}\nPhone: ${contactPhone || 'Not provided'}\n\nMessage:\n${contactMessage}`;
+        window.location.href = `mailto:support@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        setContactName('');
+        setContactEmail('');
+        setContactPhone('');
+        setContactMessage('');
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3>Contact Us</h3>
+                    <button onClick={onClose} className="close-button" aria-label="Close modal">&times;</button>
+                </div>
+                <p className="contact-intro">Have a question or feedback? We'd love to hear from you.</p>
+                <form className="contact-form" onSubmit={handleContactSubmit}>
+                    <div className="form-field">
+                        <label htmlFor="modal-contact-name">Name</label>
+                        <input
+                            id="modal-contact-name"
+                            type="text"
+                            value={contactName}
+                            onChange={e => setContactName(e.target.value)}
+                            required
+                            placeholder="Your Name"
+                        />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="modal-contact-email">Email</label>
+                        <input
+                            id="modal-contact-email"
+                            type="email"
+                            value={contactEmail}
+                            onChange={e => setContactEmail(e.target.value)}
+                            required
+                            placeholder="your@email.com"
+                        />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="modal-contact-phone">Phone Number (Optional)</label>
+                        <input
+                            id="modal-contact-phone"
+                            type="tel"
+                            value={contactPhone}
+                            onChange={e => setContactPhone(e.target.value)}
+                            placeholder="Your Phone Number"
+                        />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="modal-contact-message">Message</label>
+                        <textarea
+                            id="modal-contact-message"
+                            value={contactMessage}
+                            onChange={e => setContactMessage(e.target.value)}
+                            required
+                            rows={5}
+                            placeholder="Enter your message here..."
+                        />
+                    </div>
+                    <button type="submit" className="action-button">Send Message</button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange }: {
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     currency: Currency;
     onCurrencyChange: (currency: Currency) => void;
-}) => (
-  <div className="page-content">
-    <h2>Settings</h2>
-    <div className="settings-group">
-      <h3>Appearance</h3>
-      <div className="theme-selector">
-        <button onClick={() => onThemeChange('light')} className={theme === 'light' ? 'active' : ''}>Light</button>
-        <button onClick={() => onThemeChange('dark')} className={theme === 'dark' ? 'active' : ''}>Dark</button>
-        <button onClick={() => onThemeChange('auto')} className={theme === 'auto' ? 'active' : ''}>Auto</button>
+}) => {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+  return (
+    <div className="page-content">
+      <h2>Settings</h2>
+      <div className="settings-group">
+        <h3>Appearance</h3>
+        <div className="theme-selector">
+          <button onClick={() => onThemeChange('light')} className={theme === 'light' ? 'active' : ''}>Light</button>
+          <button onClick={() => onThemeChange('dark')} className={theme === 'dark' ? 'active' : ''}>Dark</button>
+          <button onClick={() => onThemeChange('auto')} className={theme === 'auto' ? 'active' : ''}>Auto</button>
+        </div>
       </div>
+      <div className="settings-group">
+        <h3>Currency</h3>
+        <select className="currency-selector" value={currency} onChange={(e) => onCurrencyChange(e.target.value as Currency)}>
+          {Object.entries(currencyMap).map(([code, symbol]) => (
+            <option key={code} value={code}>{code} ({symbol})</option>
+          ))}
+        </select>
+      </div>
+      <div className="settings-group">
+        <h3>Contact Us</h3>
+        <p className="contact-intro">Have a question or feedback? We'd love to hear from you.</p>
+        <button className="action-button settings-action" onClick={() => setIsContactModalOpen(true)}>Contact Us</button>
     </div>
-    <div className="settings-group">
-      <h3>Currency</h3>
-      <select className="currency-selector" value={currency} onChange={(e) => onCurrencyChange(e.target.value as Currency)}>
-        {Object.entries(currencyMap).map(([code, symbol]) => (
-          <option key={code} value={code}>{code} ({symbol})</option>
-        ))}
-      </select>
+    <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
     </div>
-  </div>
-);
+  );
+};
 
 const TaxPage = ({ transactions, currencySymbol }: {
     transactions: Transaction[];
@@ -650,6 +747,7 @@ function App() {
   });
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
   const [currency, setCurrency] = useState<Currency>(() => (localStorage.getItem('currency') as Currency) || 'GBP');
+  const [mainViewPeriod, setMainViewPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   useEffect(() => {
     localStorage.setItem('transactions', JSON.stringify(transactions));
@@ -748,7 +846,24 @@ function App() {
         return <TaxPage transactions={transactions} currencySymbol={currencySymbol} />;
       case 'main':
       default:
-        return <MainPage income={dailyIncome} expenses={dailyExpenses} onNavClick={(p) => handleNavClick(p as 'income' | 'expense')} currencySymbol={currencySymbol} />;
+        let incomeForPeriod = dailyIncome;
+        let expensesForPeriod = dailyExpenses;
+
+        if (mainViewPeriod === 'weekly') {
+            incomeForPeriod = weeklyIncome;
+            expensesForPeriod = weeklyExpenses;
+        } else if (mainViewPeriod === 'monthly') {
+            incomeForPeriod = monthlyIncome;
+            expensesForPeriod = monthlyExpenses;
+        }
+        return <MainPage 
+                 income={incomeForPeriod} 
+                 expenses={expensesForPeriod} 
+                 onNavClick={(p) => handleNavClick(p as 'income' | 'expense')} 
+                 currencySymbol={currencySymbol} 
+                 currentPeriod={mainViewPeriod}
+                 onPeriodChange={setMainViewPeriod}
+               />;
     }
   };
 
