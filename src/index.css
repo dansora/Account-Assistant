@@ -44,16 +44,12 @@ body.dark-theme {
   padding: 0;
 }
 
-html, body {
+html, body, #root {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: var(--bg-light);
   color: var(--text-dark);
   transition: background-color 0.3s ease, color 0.3s ease, font-size 0.3s ease;
-}
-
-#root {
-  height: 100%;
 }
 
 .app-container {
@@ -85,6 +81,7 @@ body.dark-theme .current-datetime {
   padding: 15px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   transition: background 0.3s ease;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -143,25 +140,43 @@ body.dark-theme .current-datetime {
     color: var(--text-light);
 }
 
-.auth-button {
+.profile-button {
     background: none;
-    border: none;
+    border: 2px solid rgba(255, 255, 255, 0.5);
     color: var(--text-light);
     cursor: pointer;
-    padding: 5px;
+    padding: 0;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s;
+    overflow: hidden;
 }
 
-.auth-button:hover {
+.profile-button:hover {
     background-color: rgba(255, 255, 255, 0.15);
+    border-color: #fff;
 }
 
-.auth-button svg {
-    fill: currentColor;
+.profile-avatar-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-initials-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Main Content Area */
@@ -184,6 +199,85 @@ main {
   border-bottom: 2px solid var(--primary-blue-light);
   padding-bottom: 5px;
   transition: color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Auth Page */
+.auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+}
+.auth-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 30px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+.auth-title {
+    font-size: 2rem;
+    color: var(--primary-blue-dark);
+    margin-bottom: 25px;
+}
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    text-align: left;
+}
+.auth-submit {
+    margin-top: 10px;
+    background-color: var(--primary-blue-dark) !important;
+}
+.auth-error {
+    color: var(--expenses-color);
+    font-size: 0.9rem;
+    margin-top: -5px;
+    margin-bottom: 5px;
+}
+.auth-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-blue-dark);
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 20px;
+    text-decoration: underline;
+}
+
+/* Profile Page */
+.profile-form {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+}
+.profile-avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.profile-avatar-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-blue-light);
+}
+#email:disabled {
+    background-color: #eee;
+    cursor: not-allowed;
+}
+body.dark-theme #email:disabled {
+    background-color: #2a2a2a;
+    color: #888;
 }
 
 /* Unified Card List */
@@ -722,7 +816,7 @@ body.dark-theme .contact-intro {
     color: #bbb;
 }
 
-.contact-form {
+.contact-form, .profile-form {
     display: flex;
     flex-direction: column;
     gap: 15px;

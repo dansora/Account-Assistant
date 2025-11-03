@@ -11,8 +11,18 @@ type Transaction = {
   category: string;
 };
 
+type User = {
+    id: number;
+    fullName: string;
+    username: string;
+    email: string;
+    phone: string;
+    avatar: string; // base64
+    passwordHash: string;
+};
+
 type View = {
-  page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax';
+  page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile';
   period?: 'daily' | 'weekly' | 'monthly';
   transactionType?: 'income' | 'expense';
 };
@@ -25,15 +35,7 @@ type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 
 
 // --- Constants & Utilities ---
 const currencyMap: Record<Currency, string> = {
-  'GBP': '£',
-  'USD': '$',
-  'CAD': 'CA$',
-  'AUD': 'A$',
-  'EUR': '€',
-  'JPY': '¥',
-  'CNY': '¥',
-  'CHF': 'Fr',
-  'INR': '₹',
+  'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹',
 };
 
 const languageToLocaleMap: Record<Language, string> = {
@@ -125,8 +127,24 @@ const translations: Record<string, Record<Language, string>> = {
   total_expense: { en: 'Total Expense:', ro: 'Cheltuieli Totale:' },
   download_csv: { en: 'Download Report (.csv)', ro: 'Descarcă Raport (.csv)' },
   send_email: { en: 'Send Email', ro: 'Trimite Email' },
-};
 
+  // Auth & Profile
+  login: { en: 'Login', ro: 'Autentificare' },
+  signup: { en: 'Sign Up', ro: 'Înregistrare' },
+  email_address: { en: 'Email Address', ro: 'Adresă de Email' },
+  password: { en: 'Password', ro: 'Parolă' },
+  full_name: { en: 'Full Name', ro: 'Nume Complet' },
+  username: { en: 'Username', ro: 'Nume utilizator' },
+  no_account: { en: "Don't have an account? Sign Up", ro: 'Nu ai cont? Înregistrează-te' },
+  has_account: { en: 'Already have an account? Login', ro: 'Ai deja cont? Autentifică-te' },
+  logout: { en: 'Logout', ro: 'Deconectare' },
+  profile: { en: 'Profile', ro: 'Profil' },
+  phone_number: { en: 'Phone Number', ro: 'Număr de Telefon' },
+  profile_picture: { en: 'Profile Picture', ro: 'Poză de Profil' },
+  update_profile: { en: 'Update Profile', ro: 'Actualizează Profilul' },
+  login_failed: { en: 'Invalid email or password.', ro: 'Email sau parolă invalidă.' },
+  signup_failed: { en: 'An account with this email already exists.', ro: 'Există deja un cont cu acest email.' },
+};
 
 const dateUtils = {
   isToday: (date: Date) => {
@@ -154,6 +172,16 @@ const dateUtils = {
     return `${t('week')} ${Math.floor(offsetDate / 7) + 1}`;
   }
 };
+
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
+};
+
 
 // --- Current Date Time Component ---
 const CurrentDateTime = ({ locale }: { locale: string }) => {
@@ -958,15 +986,16 @@ const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
 const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
-const AuthIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>;
 const LanguageArrowIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M7 10l5 5 5-5H7z"/></svg>;
 
 
 // --- Layout Components ---
-const Header = ({ t, language, onLanguageChange }: {
+const Header = ({ t, language, onLanguageChange, user, onNavClick }: {
     t: (key: string) => string;
     language: Language;
     onLanguageChange: (lang: Language) => void;
+    user: User | null;
+    onNavClick: (page: string) => void;
 }) => (
     <header className="app-header">
         <div className="header-content">
@@ -986,9 +1015,17 @@ const Header = ({ t, language, onLanguageChange }: {
                 </select>
                 <LanguageArrowIcon />
             </div>
-            <button className="auth-button" aria-label="Authentication">
-                <AuthIcon />
-            </button>
+            {user && (
+                <button className="profile-button" onClick={() => onNavClick('profile')} aria-label="Go to profile page">
+                    {user.avatar ? (
+                        <img src={user.avatar} alt="User avatar" className="profile-avatar-icon" />
+                    ) : (
+                        <div className="profile-initials-icon">
+                            {user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                        </div>
+                    )}
+                </button>
+            )}
         </div>
     </header>
 );
@@ -1054,24 +1091,148 @@ const ScrollToTop = ({ mainRef }: { mainRef: React.RefObject<HTMLElement> }) => 
     );
 };
 
+// --- Profile Page ---
+const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: {
+    user: User;
+    onUpdate: (updatedUser: User) => void;
+    onLogout: () => void;
+    onBack: () => void;
+    t: (key: string) => string;
+}) => {
+    const [fullName, setFullName] = useState(user.fullName);
+    const [username, setUsername] = useState(user.username);
+    const [phone, setPhone] = useState(user.phone);
+    const [avatar, setAvatar] = useState(user.avatar);
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const base64 = await fileToBase64(file);
+            setAvatar(base64);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onUpdate({ ...user, fullName, username, phone, avatar });
+    };
+
+    return (
+        <div className="page-content">
+            <DetailHeader title={t('profile')} onBack={onBack} t={t} />
+            <form className="profile-form" onSubmit={handleSubmit}>
+                <div className="profile-avatar-section">
+                    <img src={avatar || 'https://via.placeholder.com/150'} alt="Profile Avatar" className="profile-avatar-preview" />
+                    <label htmlFor="avatar-upload" className="action-button settings-action">{t('profile_picture')}</label>
+                    <input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
+                </div>
+                <div className="form-field">
+                    <label htmlFor="email">{t('email_address')}</label>
+                    <input id="email" type="email" value={user.email} disabled />
+                </div>
+                <div className="form-field">
+                    <label htmlFor="fullName">{t('full_name')}</label>
+                    <input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                </div>
+                <div className="form-field">
+                    <label htmlFor="username">{t('username')}</label>
+                    <input id="username" type="text" value={username} onChange={e => setUsername(e.target.value)} required />
+                </div>
+                <div className="form-field">
+                    <label htmlFor="phone">{t('phone_number')}</label>
+                    <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+                </div>
+                <button type="submit" className="action-button">{t('update_profile')}</button>
+            </form>
+            <button className="action-button expense" onClick={onLogout}>{t('logout')}</button>
+        </div>
+    );
+};
+
+
+// --- Auth Page ---
+const AuthPage = ({ onLogin, onSignup, t }: {
+    onLogin: (email: string, pass: string) => boolean;
+    onSignup: (email: string, pass: string, fullName: string, username: string, phone: string) => boolean;
+    t: (key: string) => string;
+}) => {
+    const [isLoginView, setIsLoginView] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
+    const [username, setUsername] = useState('');
+    const [phone, setPhone] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        let success = false;
+        if (isLoginView) {
+            success = onLogin(email, password);
+            if (!success) setError(t('login_failed'));
+        } else {
+            success = onSignup(email, password, fullName, username, phone);
+            if (!success) setError(t('signup_failed'));
+        }
+    };
+    
+    return (
+        <div className="auth-container">
+            <div className="auth-box">
+                <h1 className="auth-title">{isLoginView ? t('login') : t('signup')}</h1>
+                <form onSubmit={handleSubmit} className="auth-form">
+                    {!isLoginView && (
+                        <>
+                            <div className="form-field">
+                                <label htmlFor="auth-fullname">{t('full_name')}</label>
+                                <input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                            </div>
+                            <div className="form-field">
+                                <label htmlFor="auth-username">{t('username')}</label>
+                                <input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required />
+                            </div>
+                        </>
+                    )}
+                    <div className="form-field">
+                        <label htmlFor="auth-email">{t('email_address')}</label>
+                        <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                    </div>
+                    <div className="form-field">
+                        <label htmlFor="auth-password">{t('password')}</label>
+                        <input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                    </div>
+                    {!isLoginView && (
+                        <div className="form-field">
+                            <label htmlFor="auth-phone">{t('phone_number')}</label>
+                            <input id="auth-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+                        </div>
+                    )}
+                    {error && <p className="auth-error">{error}</p>}
+                    <button type="submit" className="action-button auth-submit">{isLoginView ? t('login') : t('signup')}</button>
+                </form>
+                <button onClick={() => { setIsLoginView(!isLoginView); setError(''); }} className="auth-toggle">
+                    {isLoginView ? t('no_account') : t('has_account')}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 function App() {
   const mainRef = useRef<HTMLElement>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<View>({ page: 'main' });
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    try {
-        const saved = localStorage.getItem('transactions');
-        return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-        console.error("Could not parse transactions from localStorage", error);
-        return [];
-    }
-  });
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
-  const [fontSize, setFontSize] = useState<FontSize>(() => (localStorage.getItem('fontSize') as FontSize) || 'medium');
-  const [currency, setCurrency] = useState<Currency>(() => (localStorage.getItem('currency') as Currency) || 'GBP');
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
+  
+  // User-specific states with defaults
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [theme, setTheme] = useState<Theme>('auto');
+  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [currency, setCurrency] = useState<Currency>('GBP');
+  const [language, setLanguage] = useState<Language>('en');
   const [mainViewPeriod, setMainViewPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   const t = useCallback((key: string, replacements: Record<string, string> = {}) => {
@@ -1082,53 +1243,114 @@ function App() {
       return translation;
   }, [language]);
 
+  // --- Auth logic ---
   useEffect(() => {
-      localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    const sessionUserId = localStorage.getItem('session_userId');
+    if (sessionUserId) {
+        const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+        const loggedInUser = allUsers.find(u => u.id === parseInt(sessionUserId, 10));
+        if (loggedInUser) {
+            setUser(loggedInUser);
+        }
+    }
+    setIsLoading(false);
+  }, []);
+
+  const handleLogin = (email: string, pass: string) => {
+      const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+      const foundUser = allUsers.find(u => u.email === email && u.passwordHash === pass); // Simplified password check
+      if (foundUser) {
+          setUser(foundUser);
+          localStorage.setItem('session_userId', String(foundUser.id));
+          return true;
+      }
+      return false;
+  };
+
+  const handleSignup = (email: string, pass: string, fullName: string, username: string, phone: string) => {
+      let allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+      if (allUsers.some(u => u.email === email)) {
+          return false; // User exists
+      }
+      const newUser: User = {
+          id: Date.now(),
+          email, fullName, username, phone,
+          passwordHash: pass, // Store plaintext for this mock
+          avatar: ''
+      };
+      allUsers.push(newUser);
+      localStorage.setItem('users', JSON.stringify(allUsers));
+      setUser(newUser);
+      localStorage.setItem('session_userId', String(newUser.id));
+      return true;
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      setView({ page: 'main' });
+      localStorage.removeItem('session_userId');
+  };
+
+  const handleUpdateProfile = (updatedUser: User) => {
+      setUser(updatedUser);
+      const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
+      const userIndex = allUsers.findIndex(u => u.id === updatedUser.id);
+      if (userIndex > -1) {
+          allUsers[userIndex] = updatedUser;
+          localStorage.setItem('users', JSON.stringify(allUsers));
+      }
+      setView({ page: 'main' }); // Go back to main page after update
+  };
+
+  // --- User-specific data loading ---
+  useEffect(() => {
+      if (user) {
+          setTransactions(JSON.parse(localStorage.getItem(`transactions_${user.id}`) || '[]'));
+          setTheme((localStorage.getItem(`theme_${user.id}`) as Theme) || 'auto');
+          setFontSize((localStorage.getItem(`fontSize_${user.id}`) as FontSize) || 'medium');
+          setCurrency((localStorage.getItem(`currency_${user.id}`) as Currency) || 'GBP');
+          setLanguage((localStorage.getItem(`language_${user.id}`) as Language) || 'en');
+      } else {
+          // Reset to defaults on logout
+          setTransactions([]);
+          setTheme('auto');
+          setFontSize('medium');
+          setCurrency('GBP');
+          setLanguage('en');
+      }
+  }, [user]);
+
+  // --- User-specific data saving ---
+  useEffect(() => { if (user) localStorage.setItem(`transactions_${user.id}`, JSON.stringify(transactions)); }, [transactions, user]);
+  useEffect(() => { if (user) localStorage.setItem(`language_${user.id}`, language); }, [language, user]);
+  useEffect(() => { if (user) localStorage.setItem(`currency_${user.id}`, currency); }, [currency, user]);
   
   useEffect(() => {
-    localStorage.setItem('language', language);
-  }, [language]);
-
-  useEffect(() => {
-    localStorage.setItem('theme', theme);
+    if (user) localStorage.setItem(`theme_${user.id}`, theme);
     const body = document.body;
     body.classList.remove('light-theme', 'dark-theme');
-
     if (theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => body.classList.toggle('dark-theme', mediaQuery.matches);
-      handleChange(); // Initial check
+      handleChange();
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     } else {
       body.classList.add(theme === 'dark' ? 'dark-theme' : 'light-theme');
     }
-  }, [theme]);
+  }, [theme, user]);
 
   useEffect(() => {
-    localStorage.setItem('fontSize', fontSize);
+    if (user) localStorage.setItem(`fontSize_${user.id}`, fontSize);
     const sizeMap: Record<FontSize, string> = { small: '14px', medium: '16px', large: '18px' };
     document.documentElement.style.fontSize = sizeMap[fontSize];
-  }, [fontSize]);
-
-
-  useEffect(() => {
-    localStorage.setItem('currency', currency);
-  }, [currency]);
+  }, [fontSize, user]);
 
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-
   const addTransaction = useCallback((amount: number, type: 'income' | 'expense', category: string) => {
-    const newTransaction: Transaction = {
-        id: Date.now(),
-        type,
-        amount,
-        date: new Date().toISOString(),
-        category,
-    };
+    const newTransaction: Transaction = { id: Date.now(), type, amount, date: new Date().toISOString(), category };
     setTransactions(prev => [...prev, newTransaction]);
   }, []);
 
@@ -1138,11 +1360,7 @@ function App() {
       dailyTransactions, weeklyTransactions, monthlyTransactions
   } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
-    const filteredLists = {
-        dailyTransactions: [] as Transaction[],
-        weeklyTransactions: [] as Transaction[],
-        monthlyTransactions: [] as Transaction[]
-    };
+    const filteredLists = { dailyTransactions: [] as Transaction[], weeklyTransactions: [] as Transaction[], monthlyTransactions: [] as Transaction[] };
     transactions.forEach(tx => {
       const date = new Date(tx.date);
       if (dateUtils.isToday(date)) {
@@ -1161,56 +1379,42 @@ function App() {
     return {...totals, ...filteredLists};
   }, [transactions]);
 
-  const handleNavClick = (page: 'main' | 'income' | 'expense' | 'settings' | 'tax') => setView({ page });
+  const handleNavClick = (page: 'main' | 'income' | 'expense' | 'settings' | 'tax' | 'profile') => setView({ page });
   const handleCardClick = (type: 'income' | 'expense', period: 'daily' | 'weekly' | 'monthly') => setView({ page: 'detail', transactionType: type, period });
   
+  if (isLoading) {
+      return <div className="loading-spinner"></div>; // Or a proper loading component
+  }
+
+  if (!user) {
+      return <AuthPage onLogin={handleLogin} onSignup={handleSignup} t={t} />;
+  }
+
   const renderPage = () => {
     const { page, period, transactionType } = view;
 
-    if (page === 'history') {
-      const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
-      return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
-    }
-    
-    if (page === 'detail') {
-      const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth, };
-      const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period!](new Date(tx.date)));
-      const onBack = () => setView({ page: transactionType });
-      const onViewHistory = () => setView({ page: 'history', transactionType });
-
-      switch (period) {
-        case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-        case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-        case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
-        default: setView({ page: 'main' }); return null;
-      }
-    }
-    
     switch (page) {
+      case 'profile':
+        return <ProfilePage user={user} onUpdate={handleUpdateProfile} onLogout={handleLogout} onBack={() => setView({ page: 'main' })} t={t} />;
+      case 'history':
+        const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
+        return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
+      case 'detail':
+        const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth, };
+        const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period!](new Date(tx.date)));
+        const onBack = () => setView({ page: transactionType });
+        const onViewHistory = () => setView({ page: 'history', transactionType });
+
+        switch (period) {
+          case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+          case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+          case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
+          default: setView({ page: 'main' }); return null;
+        }
       case 'income':
-        return <IncomePage 
-                 income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome}
-                 addIncome={(amount, category) => addTransaction(amount, 'income', category)}
-                 onCardClick={(period) => handleCardClick('income', period)}
-                 currencySymbol={currencySymbol}
-                 dailyTransactions={dailyTransactions}
-                 weeklyTransactions={weeklyTransactions}
-                 monthlyTransactions={monthlyTransactions}
-                 locale={locale}
-                 t={t}
-               />;
+        return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={(amount, category) => addTransaction(amount, 'income', category)} onCardClick={(period) => handleCardClick('income', period)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
       case 'expense':
-        return <ExpensePage 
-                 expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses}
-                 addExpense={(amount, category) => addTransaction(amount, 'expense', category)}
-                 onCardClick={(period) => handleCardClick('expense', period)}
-                 currencySymbol={currencySymbol}
-                 dailyTransactions={dailyTransactions}
-                 weeklyTransactions={weeklyTransactions}
-                 monthlyTransactions={monthlyTransactions}
-                 locale={locale}
-                 t={t}
-               />;
+        return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(amount, category) => addTransaction(amount, 'expense', category)} onCardClick={(period) => handleCardClick('expense', period)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
       case 'settings':
         return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} t={t} />;
       case 'tax':
@@ -1219,30 +1423,15 @@ function App() {
       default:
         let incomeForPeriod = dailyIncome;
         let expensesForPeriod = dailyExpenses;
-
-        if (mainViewPeriod === 'weekly') {
-            incomeForPeriod = weeklyIncome;
-            expensesForPeriod = weeklyExpenses;
-        } else if (mainViewPeriod === 'monthly') {
-            incomeForPeriod = monthlyIncome;
-            expensesForPeriod = monthlyExpenses;
-        }
-        return <MainPage 
-                 income={incomeForPeriod} 
-                 expenses={expensesForPeriod} 
-                 onNavClick={(p) => handleNavClick(p as 'income' | 'expense')} 
-                 currencySymbol={currencySymbol} 
-                 currentPeriod={mainViewPeriod}
-                 onPeriodChange={setMainViewPeriod}
-                 locale={locale}
-                 t={t}
-               />;
+        if (mainViewPeriod === 'weekly') { incomeForPeriod = weeklyIncome; expensesForPeriod = weeklyExpenses; }
+        else if (mainViewPeriod === 'monthly') { incomeForPeriod = monthlyIncome; expensesForPeriod = monthlyExpenses; }
+        return <MainPage income={incomeForPeriod} expenses={expensesForPeriod} onNavClick={(p) => handleNavClick(p as 'income' | 'expense')} currencySymbol={currencySymbol} currentPeriod={mainViewPeriod} onPeriodChange={setMainViewPeriod} locale={locale} t={t} />;
     }
   };
 
   return (
     <div className="app-container">
-      <Header t={t} language={language} onLanguageChange={setLanguage} />
+      <Header t={t} language={language} onLanguageChange={setLanguage} user={user} onNavClick={handleNavClick as (page: string) => void} />
       <main ref={mainRef}>{renderPage()}</main>
       <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} t={t} />
       <ScrollToTop mainRef={mainRef} />
