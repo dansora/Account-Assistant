@@ -1400,15 +1400,20 @@ function App() {
         const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
         return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
       case 'detail':
+        // TypeScript guard to ensure transactionType and period are defined.
+        if (!transactionType || !period) {
+          setView({ page: 'main' });
+          return null;
+        }
         const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth, };
-        const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period!](new Date(tx.date)));
+        const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period](new Date(tx.date)));
         const onBack = () => setView({ page: transactionType });
         const onViewHistory = () => setView({ page: 'history', transactionType });
 
         switch (period) {
-          case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-          case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-          case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
+          case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+          case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+          case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
           default: setView({ page: 'main' }); return null;
         }
       case 'income':
