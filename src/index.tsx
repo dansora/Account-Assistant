@@ -96,7 +96,8 @@ const translations: Record<string, Record<Language, string>> = {
   no_account: { en: "Don't have an account? Sign Up", ro: 'Nu ai cont? Înregistrează-te' }, has_account: { en: 'Already have an account? Login', ro: 'Ai deja cont? Autentifică-te' },
   logout: { en: 'Logout', ro: 'Deconectare' }, profile: { en: 'Profile', ro: 'Profil' }, phone_number: { en: 'Phone Number', ro: 'Număr de Telefon' },
   profile_picture: { en: 'Profile Picture', ro: 'Poză de Profil' }, update_profile: { en: 'Update Profile', ro: 'Actualizează Profilul' },
-  login_failed: { en: 'Invalid email or password.', ro: 'Email sau parolă invalidă.' }, signup_failed: { en: 'An account with this email already exists.', ro: 'Există deja un cont cu acest email.' },
+  login_failed: { en: 'Invalid login credentials.', ro: 'Credențiale de autentificare invalide.' }, signup_failed: { en: 'User already registered.', ro: 'Utilizator deja înregistrat.' },
+  check_email_confirmation: { en: 'Signup successful! Please check your email to confirm your account.', ro: 'Înregistrare reușită! Te rog verifică-ți emailul pentru a confirma contul.' },
   company_name: { en: 'Company Name', ro: 'Nume Companie' }, business_reg_code: { en: 'Business Registration Code', ro: 'Cod de Înregistrare Fiscală' }, address: { en: 'Address', ro: 'Adresă' },
   generate_document: { en: 'Generate Document', ro: 'Generează Document' }, none: { en: 'None', ro: 'Niciunul' }, receipt: { en: 'Receipt', ro: 'Chitanță' },
   invoice: { en: 'Invoice', ro: 'Factură' }, client_name: { en: 'Client Name', ro: 'Nume Client' }, client_email: { en: 'Client Email (for sending)', ro: 'Email Client (pentru trimitere)' },
@@ -416,7 +417,7 @@ const Header = ({ t, language, onLanguageChange, user, onNavClick }: { t: (key: 
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const Footer = ({ currentPage, onNavClick, t }: { currentPage: string; onNavClick: (page: string) => void; t: (key: string) => string; }) => {
     const navItems = [{ page: 'main', label: t('home'), icon: <HomeIcon /> }, { page: 'income', label: t('income'), icon: <IncomeIcon /> }, { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> }, { page: 'tax', label: t('tax'), icon: <TaxIcon /> }, { page: 'settings', label: t('settings'), icon: <SettingsIcon /> }, ];
@@ -457,23 +458,72 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: { user: User; onUp
     );
 };
 
-const AuthPage = ({ onLogin, onSignup, t }: { onLogin: (email: string, pass: string) => Promise<boolean>; onSignup: (email: string, pass: string, fullName: string, username: string) => Promise<boolean>; t: (key: string) => string; }) => {
-    const [isLoginView, setIsLoginView] = useState(true); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [fullName, setFullName] = useState(''); const [username, setUsername] = useState(''); const [error, setError] = useState(''); const [isSubmitting, setIsSubmitting] = useState(false);
-    const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setError(''); setIsSubmitting(true); const success = isLoginView ? await onLogin(email, password) : await onSignup(email, password, fullName, username); if (!success) setError(t(isLoginView ? 'login_failed' : 'signup_failed')); setIsSubmitting(false); };
+const AuthPage = ({ onLogin, onSignup, t }: {
+    onLogin: (email: string, pass: string) => Promise<{ error: any | null }>;
+    onSignup: (email: string, pass: string, fullName: string, username: string) => Promise<{ data: { user: SupabaseUser | null, session: Session | null }, error: any | null }>;
+    t: (key: string) => string;
+}) => {
+    const [isLoginView, setIsLoginView] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
+    const [username, setUsername] = useState('');
+    const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setSuccessMessage('');
+        setIsSubmitting(true);
+
+        if (isLoginView) {
+            const { error } = await onLogin(email, password);
+            if (error) {
+                setError(error.message || t('login_failed'));
+            }
+        } else {
+            const { data, error } = await onSignup(email, password, fullName, username);
+            if (error) {
+                setError(error.message || t('signup_failed'));
+            } else if (data.user && !data.session) {
+                setSuccessMessage(t('check_email_confirmation'));
+                setEmail('');
+                setPassword('');
+                setFullName('');
+                setUsername('');
+            }
+        }
+        setIsSubmitting(false);
+    };
+
     return (
-        <div className="auth-container"><div className="auth-box">
-            <h1 className="auth-title">{isLoginView ? t('login') : t('signup')}</h1>
-            <form onSubmit={handleSubmit} className="auth-form">
-                {!isLoginView && (<><div className="form-field"><label htmlFor="auth-fullname">{t('full_name')}</label><input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required disabled={isSubmitting} /></div><div className="form-field"><label htmlFor="auth-username">{t('username')}</label><input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required disabled={isSubmitting} /></div></>)}
-                <div className="form-field"><label htmlFor="auth-email">{t('email_address')}</label><input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSubmitting} /></div>
-                <div className="form-field"><label htmlFor="auth-password">{t('password')}</label><input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={isSubmitting} /></div>
-                {error && <p className="auth-error">{error}</p>}
-                <button type="submit" className="action-button auth-submit" disabled={isSubmitting}>{isSubmitting ? <div className="button-spinner"></div> : (isLoginView ? t('login') : t('signup'))}</button>
-            </form>
-            <button onClick={() => { setIsLoginView(!isLoginView); setError(''); }} className="auth-toggle" disabled={isSubmitting}>{isLoginView ? t('no_account') : t('has_account')}</button>
-        </div></div>
+        <div className="auth-container">
+            <div className="auth-box">
+                <h1 className="auth-title">{isLoginView ? t('login') : t('signup')}</h1>
+                {successMessage ? (
+                    <p className="auth-success">{successMessage}</p>
+                ) : (
+                    <form onSubmit={handleSubmit} className="auth-form">
+                        {!isLoginView && (
+                            <>
+                                <div className="form-field"><label htmlFor="auth-fullname">{t('full_name')}</label><input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required disabled={isSubmitting} /></div>
+                                <div className="form-field"><label htmlFor="auth-username">{t('username')}</label><input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required disabled={isSubmitting} /></div>
+                            </>
+                        )}
+                        <div className="form-field"><label htmlFor="auth-email">{t('email_address')}</label><input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSubmitting} /></div>
+                        <div className="form-field"><label htmlFor="auth-password">{t('password')}</label><input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={isSubmitting} /></div>
+                        {error && <p className="auth-error">{error}</p>}
+                        <button type="submit" className="action-button auth-submit" disabled={isSubmitting}>{isSubmitting ? <div className="button-spinner"></div> : (isLoginView ? t('login') : t('signup'))}</button>
+                    </form>
+                )}
+                <button onClick={() => { setIsLoginView(!isLoginView); setError(''); setSuccessMessage(''); }} className="auth-toggle" disabled={isSubmitting}>{isLoginView ? t('no_account') : t('has_account')}</button>
+            </div>
+        </div>
     );
 };
+
 
 function App() {
   const mainRef = useRef<HTMLElement>(null);
@@ -518,8 +568,16 @@ function App() {
   useEffect(() => { if (user) localStorage.setItem(`fontSize_${user.id}`, fontSize); document.documentElement.style.fontSize = ({ small: '14px', medium: '16px', large: '18px' })[fontSize]; }, [fontSize, user]);
   useEffect(() => { if (!user) return; localStorage.setItem(`theme_${user.id}`, theme); const body = document.body; body.classList.remove('light-theme', 'dark-theme'); if (theme === 'auto') { const mq = window.matchMedia('(prefers-color-scheme: dark)'); const h = () => body.classList.toggle('dark-theme', mq.matches); h(); mq.addEventListener('change', h); return () => mq.removeEventListener('change', h); } else { body.classList.add(theme === 'dark' ? 'dark-theme' : 'light-theme'); } }, [theme, user]);
 
-  const handleLogin = async (email: string, pass: string) => { const { error } = await supabase.auth.signInWithPassword({ email, password: pass }); return !error; };
-  const handleSignup = async (email: string, pass: string, fullName: string, username: string) => { const { error } = await supabase.auth.signUp({ email, password: pass, options: { data: { full_name: fullName, username: username } } }); return !error; };
+  const handleLogin = async (email: string, pass: string) => {
+    return supabase.auth.signInWithPassword({ email, password: pass });
+  };
+  const handleSignup = async (email: string, pass: string, fullName: string, username: string) => {
+    return supabase.auth.signUp({
+        email,
+        password: pass,
+        options: { data: { full_name: fullName, username: username } }
+    });
+  };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setView({ page: 'main' }); };
   const handleUpdateProfile = async (updatedUser: User) => { const { data, error } = await supabase.from('profiles').update(appUserToDbProfile(updatedUser)).eq('id', updatedUser.id).select().single(); if (error) console.error("Failed to update profile", error); else if (data && session?.user) { setUser(dbProfileToApp(data, session.user)); setView({ page: 'main' }); } };
   const handleVatChange = (rate: number) => { if (user) handleUpdateProfile({ ...user, vatRate: rate }); };
