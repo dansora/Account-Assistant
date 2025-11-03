@@ -59,6 +59,38 @@ html, body, #root {
   background-color: var(--bg-light);
 }
 
+/* Loading Spinner */
+.loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(0,0,0,0.1);
+    border-top-color: var(--primary-blue-dark);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+}
+
+.button-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
 .current-datetime {
   text-align: center;
   margin-bottom: 20px;
@@ -372,6 +404,13 @@ body.dark-theme #email:disabled {
 }
 .action-button:active {
     transform: scale(0.98);
+}
+.action-button:disabled {
+    background-color: #999;
+    cursor: not-allowed;
+}
+body.dark-theme .action-button:disabled {
+    background-color: #555;
 }
 
 /* Modal and Numpad */

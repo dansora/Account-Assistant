@@ -5,6 +5,7 @@ import './index.css';
 // --- Type Definitions ---
 type Transaction = {
   id: number;
+  userId: number;
   type: 'income' | 'expense';
   amount: number;
   date: string; // ISO 8601 format
@@ -32,6 +33,76 @@ type FontSize = 'small' | 'medium' | 'large';
 type Language = 'en' | 'ro';
 
 type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
+
+// --- Simulated Supabase Client ---
+// In a real app, this would be in its own file and use the Supabase SDK.
+// Here, we simulate the async nature of a database with localStorage.
+const supabaseClient = {
+    // Simulate a network delay
+    _delay: (ms: number) => new Promise(res => setTimeout(res, ms)),
+
+    async getTransactions(userId: number): Promise<Transaction[]> {
+        await this._delay(200);
+        const allTransactions: Transaction[] = JSON.parse(localStorage.getItem('transactions') || '[]');
+        return allTransactions.filter(tx => tx.userId === userId);
+    },
+
+    async addTransaction(transaction: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> {
+        await this._delay(150);
+        const allTransactions: Transaction[] = JSON.parse(localStorage.getItem('transactions') || '[]');
+        const newTransaction: Transaction = {
+            ...transaction,
+            id: Date.now(),
+            date: new Date().toISOString(),
+        };
+        allTransactions.push(newTransaction);
+        localStorage.setItem('transactions', JSON.stringify(allTransactions));
+        return newTransaction;
+    },
+
+    async _getUsers(): Promise<User[]> {
+        await this._delay(100);
+        return JSON.parse(localStorage.getItem('users') || '[]');
+    },
+    
+    async getUserById(userId: number): Promise<User | null> {
+        await this._delay(50);
+        const allUsers = await this._getUsers();
+        return allUsers.find(u => u.id === userId) || null;
+    },
+
+    async addUser(user: Omit<User, 'id'>): Promise<User> {
+        await this._delay(250);
+        const allUsers = await this._getUsers();
+        if (allUsers.some(u => u.email === user.email)) {
+            throw new Error('User with this email already exists.');
+        }
+        const newUser: User = { ...user, id: Date.now() };
+        allUsers.push(newUser);
+        localStorage.setItem('users', JSON.stringify(allUsers));
+        return newUser;
+    },
+
+    async updateUser(updatedUser: User): Promise<User> {
+        await this._delay(200);
+        const allUsers = await this._getUsers();
+        const userIndex = allUsers.findIndex(u => u.id === updatedUser.id);
+        if (userIndex > -1) {
+            allUsers[userIndex] = updatedUser;
+            localStorage.setItem('users', JSON.stringify(allUsers));
+            return updatedUser;
+        }
+        throw new Error('User not found.');
+    },
+
+    async login(email: string, pass: string): Promise<User | null> {
+        await this._delay(300);
+        const allUsers = await this._getUsers();
+        const foundUser = allUsers.find(u => u.email === email && u.passwordHash === pass);
+        return foundUser || null;
+    }
+};
+
 
 // --- Constants & Utilities ---
 const currencyMap: Record<Currency, string> = {
@@ -984,7 +1055,7 @@ const TaxPage = ({ transactions, currencySymbol, t }: {
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12-.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const LanguageArrowIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M7 10l5 5 5-5H7z"/></svg>;
 
@@ -1152,8 +1223,8 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: {
 
 // --- Auth Page ---
 const AuthPage = ({ onLogin, onSignup, t }: {
-    onLogin: (email: string, pass: string) => boolean;
-    onSignup: (email: string, pass: string, fullName: string, username: string, phone: string) => boolean;
+    onLogin: (email: string, pass: string) => Promise<boolean>;
+    onSignup: (email: string, pass: string, fullName: string, username: string, phone: string) => Promise<boolean>;
     t: (key: string) => string;
 }) => {
     const [isLoginView, setIsLoginView] = useState(true);
@@ -1163,18 +1234,21 @@ const AuthPage = ({ onLogin, onSignup, t }: {
     const [username, setUsername] = useState('');
     const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setIsSubmitting(true);
         let success = false;
         if (isLoginView) {
-            success = onLogin(email, password);
+            success = await onLogin(email, password);
             if (!success) setError(t('login_failed'));
         } else {
-            success = onSignup(email, password, fullName, username, phone);
+            success = await onSignup(email, password, fullName, username, phone);
             if (!success) setError(t('signup_failed'));
         }
+        setIsSubmitting(false);
     };
     
     return (
@@ -1186,32 +1260,34 @@ const AuthPage = ({ onLogin, onSignup, t }: {
                         <>
                             <div className="form-field">
                                 <label htmlFor="auth-fullname">{t('full_name')}</label>
-                                <input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                                <input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required disabled={isSubmitting} />
                             </div>
                             <div className="form-field">
                                 <label htmlFor="auth-username">{t('username')}</label>
-                                <input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required />
+                                <input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required disabled={isSubmitting} />
                             </div>
                         </>
                     )}
                     <div className="form-field">
                         <label htmlFor="auth-email">{t('email_address')}</label>
-                        <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                        <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSubmitting} />
                     </div>
                     <div className="form-field">
                         <label htmlFor="auth-password">{t('password')}</label>
-                        <input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                        <input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={isSubmitting} />
                     </div>
                     {!isLoginView && (
                         <div className="form-field">
                             <label htmlFor="auth-phone">{t('phone_number')}</label>
-                            <input id="auth-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+                            <input id="auth-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} disabled={isSubmitting} />
                         </div>
                     )}
                     {error && <p className="auth-error">{error}</p>}
-                    <button type="submit" className="action-button auth-submit">{isLoginView ? t('login') : t('signup')}</button>
+                    <button type="submit" className="action-button auth-submit" disabled={isSubmitting}>
+                        {isSubmitting ? <div className="button-spinner"></div> : (isLoginView ? t('login') : t('signup'))}
+                    </button>
                 </form>
-                <button onClick={() => { setIsLoginView(!isLoginView); setError(''); }} className="auth-toggle">
+                <button onClick={() => { setIsLoginView(!isLoginView); setError(''); }} className="auth-toggle" disabled={isSubmitting}>
                     {isLoginView ? t('no_account') : t('has_account')}
                 </button>
             </div>
@@ -1243,85 +1319,45 @@ function App() {
       return translation;
   }, [language]);
 
-  // --- Auth logic ---
+  // Check for active session on initial load
   useEffect(() => {
-    const sessionUserId = localStorage.getItem('session_userId');
-    if (sessionUserId) {
-        const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-        const loggedInUser = allUsers.find(u => u.id === parseInt(sessionUserId, 10));
-        if (loggedInUser) {
-            setUser(loggedInUser);
+    const checkSession = async () => {
+        const sessionUserId = localStorage.getItem('session_userId');
+        if (sessionUserId) {
+            const loggedInUser = await supabaseClient.getUserById(parseInt(sessionUserId, 10));
+            if (loggedInUser) {
+                setUser(loggedInUser);
+            }
         }
-    }
-    setIsLoading(false);
+        setIsLoading(false);
+    };
+    checkSession();
   }, []);
 
-  const handleLogin = (email: string, pass: string) => {
-      const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-      const foundUser = allUsers.find(u => u.email === email && u.passwordHash === pass); // Simplified password check
-      if (foundUser) {
-          setUser(foundUser);
-          localStorage.setItem('session_userId', String(foundUser.id));
-          return true;
-      }
-      return false;
-  };
-
-  const handleSignup = (email: string, pass: string, fullName: string, username: string, phone: string) => {
-      let allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-      if (allUsers.some(u => u.email === email)) {
-          return false; // User exists
-      }
-      const newUser: User = {
-          id: Date.now(),
-          email, fullName, username, phone,
-          passwordHash: pass, // Store plaintext for this mock
-          avatar: ''
-      };
-      allUsers.push(newUser);
-      localStorage.setItem('users', JSON.stringify(allUsers));
-      setUser(newUser);
-      localStorage.setItem('session_userId', String(newUser.id));
-      return true;
-  };
-
-  const handleLogout = () => {
-      setUser(null);
-      setView({ page: 'main' });
-      localStorage.removeItem('session_userId');
-  };
-
-  const handleUpdateProfile = (updatedUser: User) => {
-      setUser(updatedUser);
-      const allUsers: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-      const userIndex = allUsers.findIndex(u => u.id === updatedUser.id);
-      if (userIndex > -1) {
-          allUsers[userIndex] = updatedUser;
-          localStorage.setItem('users', JSON.stringify(allUsers));
-      }
-      setView({ page: 'main' }); // Go back to main page after update
-  };
-
-  // --- User-specific data loading ---
+  // Load user data and settings when user logs in or changes
   useEffect(() => {
-      if (user) {
-          setTransactions(JSON.parse(localStorage.getItem(`transactions_${user.id}`) || '[]'));
-          setTheme((localStorage.getItem(`theme_${user.id}`) as Theme) || 'auto');
-          setFontSize((localStorage.getItem(`fontSize_${user.id}`) as FontSize) || 'medium');
-          setCurrency((localStorage.getItem(`currency_${user.id}`) as Currency) || 'GBP');
-          setLanguage((localStorage.getItem(`language_${user.id}`) as Language) || 'en');
-      } else {
-          // Reset to defaults on logout
-          setTransactions([]);
-          setTheme('auto');
-          setFontSize('medium');
-          setCurrency('GBP');
-          setLanguage('en');
-      }
+      const loadUserData = async () => {
+          if (user) {
+              const userTransactions = await supabaseClient.getTransactions(user.id);
+              setTransactions(userTransactions);
+              
+              setTheme((localStorage.getItem(`theme_${user.id}`) as Theme) || 'auto');
+              setFontSize((localStorage.getItem(`fontSize_${user.id}`) as FontSize) || 'medium');
+              setCurrency((localStorage.getItem(`currency_${user.id}`) as Currency) || 'GBP');
+              setLanguage((localStorage.getItem(`language_${user.id}`) as Language) || 'en');
+          } else {
+              // Reset to defaults on logout
+              setTransactions([]);
+              setTheme('auto');
+              setFontSize('medium');
+              setCurrency('GBP');
+              setLanguage('en');
+          }
+      };
+      loadUserData();
   }, [user]);
 
-  // --- User-specific data saving ---
-  useEffect(() => { if (user) localStorage.setItem(`transactions_${user.id}`, JSON.stringify(transactions)); }, [transactions, user]);
+  // Save user-specific UI settings
   useEffect(() => { if (user) localStorage.setItem(`language_${user.id}`, language); }, [language, user]);
   useEffect(() => { if (user) localStorage.setItem(`currency_${user.id}`, currency); }, [currency, user]);
   
@@ -1346,13 +1382,53 @@ function App() {
     document.documentElement.style.fontSize = sizeMap[fontSize];
   }, [fontSize, user]);
 
+  const handleLogin = async (email: string, pass: string) => {
+      const foundUser = await supabaseClient.login(email, pass);
+      if (foundUser) {
+          setUser(foundUser);
+          localStorage.setItem('session_userId', String(foundUser.id));
+          return true;
+      }
+      return false;
+  };
+
+  const handleSignup = async (email: string, pass: string, fullName: string, username: string, phone: string) => {
+    try {
+        const newUser = await supabaseClient.addUser({ email, fullName, username, phone, passwordHash: pass, avatar: '' });
+        setUser(newUser);
+        localStorage.setItem('session_userId', String(newUser.id));
+        return true;
+    } catch (error) {
+        console.error(error);
+        return false;
+    }
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      setView({ page: 'main' });
+      localStorage.removeItem('session_userId');
+  };
+
+  const handleUpdateProfile = async (updatedUser: User) => {
+    try {
+        const result = await supabaseClient.updateUser(updatedUser);
+        setUser(result);
+        setView({ page: 'main' });
+    } catch (error) {
+        console.error("Failed to update profile", error);
+    }
+  };
+
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  const addTransaction = useCallback((amount: number, type: 'income' | 'expense', category: string) => {
-    const newTransaction: Transaction = { id: Date.now(), type, amount, date: new Date().toISOString(), category };
-    setTransactions(prev => [...prev, newTransaction]);
-  }, []);
+  const addTransaction = useCallback(async (amount: number, type: 'income' | 'expense', category: string) => {
+    if (!user) return;
+    const newTransactionData = { userId: user.id, amount, type, category };
+    const addedTransaction = await supabaseClient.addTransaction(newTransactionData);
+    setTransactions(prev => [...prev, addedTransaction]);
+  }, [user]);
 
   const { 
       dailyIncome, weeklyIncome, monthlyIncome, 
@@ -1383,7 +1459,7 @@ function App() {
   const handleCardClick = (type: 'income' | 'expense', period: 'daily' | 'weekly' | 'monthly') => setView({ page: 'detail', transactionType: type, period });
   
   if (isLoading) {
-      return <div className="loading-spinner"></div>; // Or a proper loading component
+      return <div className="loading-spinner"></div>;
   }
 
   if (!user) {
@@ -1400,7 +1476,6 @@ function App() {
         const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
         return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
       case 'detail':
-        // TypeScript guard to ensure transactionType and period are defined.
         if (!transactionType || !period) {
           setView({ page: 'main' });
           return null;
