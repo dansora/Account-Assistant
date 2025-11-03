@@ -10,6 +10,11 @@ type Transaction = {
   amount: number;
   date: string; // ISO 8601 format
   category: string;
+  documentType?: 'receipt' | 'invoice';
+  documentNumber?: string;
+  clientName?: string;
+  clientEmail?: string;
+  serviceDescription?: string;
 };
 
 type User = {
@@ -20,6 +25,10 @@ type User = {
     phone: string;
     avatar: string; // base64
     passwordHash: string;
+    companyName: string;
+    businessRegistrationCode: string;
+    address: string;
+    vatRate: number; // e.g., 19 for 19%
 };
 
 type View = {
@@ -35,10 +44,7 @@ type Language = 'en' | 'ro';
 type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
 
 // --- Simulated Supabase Client ---
-// In a real app, this would be in its own file and use the Supabase SDK.
-// Here, we simulate the async nature of a database with localStorage.
 const supabaseClient = {
-    // Simulate a network delay
     _delay: (ms: number) => new Promise(res => setTimeout(res, ms)),
 
     async getTransactions(userId: number): Promise<Transaction[]> {
@@ -109,10 +115,7 @@ const currencyMap: Record<Currency, string> = {
   'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹',
 };
 
-const languageToLocaleMap: Record<Language, string> = {
-  'en': 'en-GB',
-  'ro': 'ro-RO',
-};
+const languageToLocaleMap: Record<Language, string> = { 'en': 'en-GB', 'ro': 'ro-RO' };
 
 const translations: Record<string, Record<Language, string>> = {
   // General
@@ -215,6 +218,29 @@ const translations: Record<string, Record<Language, string>> = {
   update_profile: { en: 'Update Profile', ro: 'Actualizează Profilul' },
   login_failed: { en: 'Invalid email or password.', ro: 'Email sau parolă invalidă.' },
   signup_failed: { en: 'An account with this email already exists.', ro: 'Există deja un cont cu acest email.' },
+  company_name: { en: 'Company Name', ro: 'Nume Companie' },
+  business_reg_code: { en: 'Business Registration Code', ro: 'Cod de Înregistrare Fiscală' },
+  address: { en: 'Address', ro: 'Adresă' },
+
+  // Document Generation
+  generate_document: { en: 'Generate Document', ro: 'Generează Document' },
+  none: { en: 'None', ro: 'Niciunul' },
+  receipt: { en: 'Receipt', ro: 'Chitanță' },
+  invoice: { en: 'Invoice', ro: 'Factură' },
+  client_name: { en: 'Client Name (Optional)', ro: 'Nume Client (Opțional)' },
+  client_email: { en: 'Client Email (for sending)', ro: 'Email Client (pentru trimitere)' },
+  service_description: { en: 'Service Description', ro: 'Descriere Serviciu' },
+  vat_rate: { en: 'VAT Rate', ro: 'Cotă TVA' },
+  print: { en: 'Print', ro: 'Tipărește' },
+  send: { en: 'Send', ro: 'Trimite' },
+  from: { en: 'From:', ro: 'De la:' },
+  to: { en: 'To:', ro: 'Către:' },
+  date_issued: { en: 'Date Issued:', ro: 'Data emiterii:' },
+  subtotal: { en: 'Subtotal', ro: 'Subtotal' },
+  vat: { en: 'VAT', ro: 'TVA' },
+  total: { en: 'Total', ro: 'Total' },
+  thank_you: { en: 'Thank you for your business!', ro: 'Vă mulțumim pentru afacerea dumneavoastră!' },
+  payment_received: { en: 'Payment received. Thank you!', ro: 'Plata a fost primită. Vă mulțumim!' },
 };
 
 const dateUtils = {
@@ -339,26 +365,18 @@ const CalendarModal = ({ isOpen, onClose, onSelectDate }: {
     );
 };
 
-
-// --- Numpad Modal Component ---
+// --- Numpad Modals ---
 const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: {
-    isOpen: boolean;
-    onClose: () => void;
-    onSubmit: (amount: number, category: string) => void;
-    title: string;
-    currencySymbol: string;
-    categories?: string[];
-    t: (key: string) => string;
+    isOpen: boolean; onClose: () => void; onSubmit: (amount: number, category: string) => void; title: string;
+    currencySymbol: string; categories?: string[]; t: (key: string) => string;
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(categories && categories.length > 0 ? categories[0] : 'other');
+  const [selectedCategory, setSelectedCategory] = useState(categories?.[0] || 'other');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      if (categories && categories.length > 0) {
-        setSelectedCategory(categories[0]);
-      }
+      if (categories && categories.length > 0) setSelectedCategory(categories[0]);
       setInputValue('');
       setIsCategoryOpen(false);
     }
@@ -368,13 +386,11 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
     if (value === '.' && inputValue.includes('.')) return;
     setInputValue(inputValue + value);
   };
-
-  const handleClear = () => { setInputValue(''); };
+  const handleClear = () => setInputValue('');
   const handleEnter = () => {
     const amount = parseFloat(inputValue);
     if (!isNaN(amount) && amount > 0) {
       onSubmit(amount, selectedCategory);
-      setInputValue('');
     }
   };
 
@@ -389,30 +405,16 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
            <button onClick={onClose} className="close-button" aria-label="Close modal">&times;</button>
         </div>
         
-        {categories && categories.length > 0 && (
+        {categories && (
             <div className="category-selector">
-                <button 
-                    className="category-display-button" 
-                    onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                    aria-haspopup="true"
-                    aria-expanded={isCategoryOpen}
-                >
+                <button className="category-display-button" onClick={() => setIsCategoryOpen(!isCategoryOpen)} aria-haspopup="true" aria-expanded={isCategoryOpen}>
                     <span>{selectedCategory}</span>
                     <span className={`arrow ${isCategoryOpen ? 'up' : 'down'}`}></span>
                 </button>
                 {isCategoryOpen && (
                     <div className="category-dropdown">
                         {categories.map(cat => (
-                            <button 
-                                key={cat} 
-                                className="category-dropdown-item"
-                                onClick={() => {
-                                    setSelectedCategory(cat);
-                                    setIsCategoryOpen(false);
-                                }}
-                            >
-                                {cat}
-                            </button>
+                            <button key={cat} className="category-dropdown-item" onClick={() => { setSelectedCategory(cat); setIsCategoryOpen(false); }}>{cat}</button>
                         ))}
                     </div>
                 )}
@@ -430,6 +432,172 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
   );
 };
 
+const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: {
+    isOpen: boolean; onClose: () => void; 
+    onSubmit: (data: { amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string }) => void;
+    title: string; currencySymbol: string; categories?: string[]; t: (key: string) => string;
+}) => {
+  const [inputValue, setInputValue] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(categories?.[0] || 'other');
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [docType, setDocType] = useState<'none' | 'receipt' | 'invoice'>('none');
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [serviceDescription, setServiceDescription] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (categories?.length) setSelectedCategory(categories[0]);
+      setInputValue('');
+      setIsCategoryOpen(false);
+      setDocType('none');
+      setClientName('');
+      setClientEmail('');
+      setServiceDescription('');
+    }
+  }, [isOpen, categories]);
+
+  const handleEnter = () => {
+    const amount = parseFloat(inputValue);
+    if (isNaN(amount) || amount <= 0) return;
+    const submissionData: any = { amount, category: selectedCategory };
+    if (docType !== 'none') {
+        submissionData.documentType = docType;
+        submissionData.clientName = clientName;
+        submissionData.clientEmail = clientEmail;
+        submissionData.serviceDescription = serviceDescription;
+    }
+    onSubmit(submissionData);
+  };
+
+  if (!isOpen) return null;
+  const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="modal-content numpad-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+           <h3>{title}</h3>
+           <button onClick={onClose} className="close-button">&times;</button>
+        </div>
+        
+        <div className="numpad-display" aria-live="polite">{currencySymbol}{inputValue || '0.00'}</div>
+        <div className="numpad-grid">
+          {numpadKeys.map(key => <button key={key} onClick={(e) => setInputValue(val => val + (e.currentTarget.textContent || ''))} className="numpad-button">{key}</button>)}
+          <button onClick={() => setInputValue('')} className="numpad-button action">{t('clear')}</button>
+        </div>
+        
+        <div className="numpad-extra-fields">
+            {categories && (
+                <div className="category-selector">
+                    <button className="category-display-button" onClick={() => setIsCategoryOpen(!isCategoryOpen)}>
+                        <span>{selectedCategory}</span><span className={`arrow ${isCategoryOpen ? 'up' : 'down'}`}></span>
+                    </button>
+                    {isCategoryOpen && (
+                        <div className="category-dropdown">
+                            {categories.map(cat => <button key={cat} className="category-dropdown-item" onClick={() => { setSelectedCategory(cat); setIsCategoryOpen(false); }}>{cat}</button>)}
+                        </div>
+                    )}
+                </div>
+            )}
+            <div className="form-field">
+                <label>{t('generate_document')}</label>
+                <div className="doc-type-selector">
+                    <button className={docType === 'none' ? 'active' : ''} onClick={() => setDocType('none')}>{t('none')}</button>
+                    <button className={docType === 'receipt' ? 'active' : ''} onClick={() => setDocType('receipt')}>{t('receipt')}</button>
+                    <button className={docType === 'invoice' ? 'active' : ''} onClick={() => setDocType('invoice')}>{t('invoice')}</button>
+                </div>
+            </div>
+            {docType !== 'none' && (
+                <>
+                    <div className="form-field"><label htmlFor="clientName">{t('client_name')}</label><input id="clientName" type="text" value={clientName} onChange={e => setClientName(e.target.value)} /></div>
+                    <div className="form-field"><label htmlFor="clientEmail">{t('client_email')}</label><input id="clientEmail" type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} /></div>
+                    <div className="form-field"><label htmlFor="serviceDesc">{t('service_description')}</label><textarea id="serviceDesc" value={serviceDescription} onChange={e => setServiceDescription(e.target.value)} required /></div>
+                </>
+            )}
+        </div>
+        <button onClick={handleEnter} className="numpad-enter-button" disabled={docType !== 'none' && !serviceDescription}>{t('enter')}</button>
+      </div>
+    </div>
+  );
+};
+
+// --- Document Viewer Modal ---
+const DocumentViewerModal = ({ transaction, user, currencySymbol, onClose, t }: {
+    transaction: Transaction | null; user: User | null; currencySymbol: string; onClose: () => void; t: (key: string) => string;
+}) => {
+    if (!transaction || !user || !transaction.documentType) return null;
+
+    const { amount, date, documentNumber, documentType, clientName, clientEmail, serviceDescription } = transaction;
+    const { fullName, email, phone, companyName, businessRegistrationCode, address, vatRate } = user;
+    const isInvoice = documentType === 'invoice';
+
+    const subtotal = vatRate > 0 ? amount / (1 + vatRate / 100) : amount;
+    const vatAmount = amount - subtotal;
+
+    const handleSendEmail = () => {
+        const subject = `${t(documentType)} ${documentNumber}`;
+        const body = `Dear ${clientName || 'Client'},\n\nPlease find your ${t(documentType).toLowerCase()} attached.\n\n${t('thank_you')}`;
+        window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content doc-viewer-modal-content" onClick={e => e.stopPropagation()}>
+                <div className="doc-viewer-header">
+                    <h3>{t(documentType)}</h3>
+                    <button onClick={onClose} className="close-button">&times;</button>
+                </div>
+                <div className="doc-viewer-body">
+                    <header className="doc-header">
+                        <div>
+                            <h1>{isInvoice ? companyName : fullName}</h1>
+                            {isInvoice && businessRegistrationCode && <p>{businessRegistrationCode}</p>}
+                        </div>
+                        <h2>{documentNumber}</h2>
+                    </header>
+                    <section className="doc-parties">
+                        <div className="party-from">
+                            <strong>{t('from')}</strong>
+                            <p>{isInvoice ? companyName : fullName}</p>
+                            {address && <p>{address}</p>}
+                            <p>{email}</p>
+                            <p>{phone}</p>
+                        </div>
+                        <div className="party-to">
+                            <strong>{t('to')}</strong>
+                            <p>{clientName || 'N/A'}</p>
+                            {isInvoice && clientEmail && <p>{clientEmail}</p>}
+                        </div>
+                    </section>
+                    <section className="doc-details">
+                        <div><strong>{t('date_issued')}</strong> {new Date(date).toLocaleDateString()}</div>
+                    </section>
+                    <section className="doc-line-items">
+                        <table>
+                            <thead><tr><th>{t('service_description')}</th><th>{t('total')}</th></tr></thead>
+                            <tbody><tr><td>{serviceDescription}</td><td>{currencySymbol}{amount.toFixed(2)}</td></tr></tbody>
+                        </table>
+                    </section>
+                    <section className="doc-totals">
+                        {vatRate > 0 && <div className="total-row"><span>{t('subtotal')}</span><span>{currencySymbol}{subtotal.toFixed(2)}</span></div>}
+                        {vatRate > 0 && <div className="total-row"><span>{t('vat')} ({vatRate}%)</span><span>{currencySymbol}{vatAmount.toFixed(2)}</span></div>}
+                        <div className="total-row grand-total"><span>{t('total')}</span><span>{currencySymbol}{amount.toFixed(2)}</span></div>
+                    </section>
+                    <footer className="doc-footer">
+                        <p>{isInvoice ? t('thank_you') : t('payment_received')}</p>
+                    </footer>
+                </div>
+                <div className="doc-viewer-actions">
+                    <button onClick={() => window.print()} className="action-button settings-action">{t('print')}</button>
+                    {clientEmail && <button onClick={handleSendEmail} className="action-button">{t('send')}</button>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- Detail Page Components ---
 const DetailHeader = ({ title, onBack, t }: { title: string; onBack: () => void; t: (key: string) => string}) => (
   <div className="detail-header">
@@ -438,21 +606,25 @@ const DetailHeader = ({ title, onBack, t }: { title: string; onBack: () => void;
   </div>
 );
 
-const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: string; }> = ({ transaction, currencySymbol }) => (
+const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string) => string; }> = ({ transaction, currencySymbol, onDocClick, t }) => (
   <li className="transaction-item">
     <div className="transaction-details">
         <span className="transaction-date">{new Date(transaction.date).toLocaleString()}</span>
-        <span className="transaction-category">{transaction.category}</span>
+        <div className="transaction-meta">
+          <span className="transaction-category">{transaction.category}</span>
+          {transaction.documentType && (
+            <button className="document-badge" onClick={() => onDocClick(transaction)}>
+              {t(transaction.documentType)} #{transaction.documentNumber?.slice(-6)}
+            </button>
+          )}
+        </div>
     </div>
     <span className={`amount ${transaction.type}`}>{currencySymbol}{transaction.amount.toFixed(2)}</span>
   </li>
 );
 
-const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
-  transactions: Transaction[];
-  type: 'income' | 'expense';
-  onBack: () => void;
-  currencySymbol: string;
+const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, t }: {
+  transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void;
   t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
   const title = t('todays_type', { type: t(type) });
@@ -461,18 +633,15 @@ const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
       <DetailHeader title={title} onBack={onBack} t={t} />
       <ul className="transaction-list">
         {transactions.length > 0 ? (
-          transactions.map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} />)
+          transactions.map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)
         ) : <p>{t('no_transactions_today')}</p>}
       </ul>
     </div>
   );
 };
 
-const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
-  transactions: Transaction[];
-  type: 'income' | 'expense';
-  onBack: () => void;
-  currencySymbol: string;
+const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, t }: {
+  transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void;
   t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
   const title = t('this_weeks_type', { type: t(type) });
@@ -491,7 +660,7 @@ const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
           <div key={day}>
             <h3 className="list-group-header">{day}</h3>
             <ul className="transaction-list">
-              {(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} />)}
+              {(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)}
             </ul>
           </div>
         ))
@@ -500,13 +669,9 @@ const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
   );
 };
 
-const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol, t }: {
-    transactions: Transaction[];
-    type: 'income' | 'expense';
-    onBack: () => void;
-    onViewHistory: () => void;
-    currencySymbol: string;
-    t: (key: string, replacements?: Record<string, string>) => string;
+const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol, onDocClick, t }: {
+    transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; onViewHistory: () => void;
+    currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
     const title = t('this_months_type', { type: t(type) });
     const groupedByWeek = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => {
@@ -525,7 +690,7 @@ const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currency
                     <div key={week}>
                         <h3 className="list-group-header">{week}</h3>
                         <ul className="transaction-list">
-                            {(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} />)}
+                            {(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)}
                         </ul>
                     </div>
                 ))
@@ -535,11 +700,7 @@ const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currency
 };
 
 const HistoryPage = ({ transactions, type, onBack, currencySymbol, t }: {
-    transactions: Transaction[];
-    type: 'income' | 'expense';
-    onBack: () => void;
-    currencySymbol: string;
-    t: (key: string, replacements?: Record<string, string>) => string;
+    transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
     const title = t('monthly_history', { type: t(type) });
     const monthlyTotals = useMemo(() => {
@@ -575,28 +736,17 @@ const HistoryPage = ({ transactions, type, onBack, currencySymbol, t }: {
 
 // --- Category Breakdown Component ---
 const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, type, t }: {
-    title: string;
-    transactions: Transaction[];
-    totalAmount: number;
-    currencySymbol: string;
-    type: 'income' | 'expense';
-    t: (key: string) => string;
+    title: string; transactions: Transaction[]; totalAmount: number; currencySymbol: string; type: 'income' | 'expense'; t: (key: string) => string;
 }) => {
     const breakdown = useMemo(() => {
         if (totalAmount === 0) return [];
         const grouped = transactions.reduce((acc, tx) => {
-            if (tx.type === type) {
-                 acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
-            }
+            if (tx.type === type) { acc[tx.category] = (acc[tx.category] || 0) + tx.amount; }
             return acc;
         }, {} as Record<string, number>);
 
         return Object.entries(grouped)
-            .map(([category, amount]) => ({
-                category,
-                amount,
-                percentage: (amount / totalAmount) * 100,
-            }))
+            .map(([category, amount]) => ({ category, amount, percentage: (amount / totalAmount) * 100 }))
             .sort((a, b) => b.amount - a.amount);
     }, [transactions, totalAmount, type]);
 
@@ -612,13 +762,8 @@ const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, t
                                 <span className={`category-amount amount ${type}`}>{currencySymbol}{amount.toFixed(2)}</span>
                             </div>
                             <div className="progress-bar-container">
-                                <div
-                                    className={`progress-bar ${type}`}
-                                    style={{ width: `${percentage}%` }}
-                                    role="progressbar"
-                                    aria-valuenow={percentage}
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
+                                <div className={`progress-bar ${type}`} style={{ width: `${percentage}%` }} role="progressbar"
+                                    aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100}
                                     aria-label={`${category} accounts for ${percentage.toFixed(1)}%`}
                                 ></div>
                             </div>
@@ -634,14 +779,9 @@ const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, t
 
 // --- Main Page Components ---
 const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange, locale, t }: {
-  income: number;
-  expenses: number;
-  onNavClick: (page: 'income' | 'expense') => void;
-  currencySymbol: string;
-  currentPeriod: 'daily' | 'weekly' | 'monthly';
-  onPeriodChange: (period: 'daily' | 'weekly' | 'monthly') => void;
-  locale: string;
-  t: (key: string) => string;
+  income: number; expenses: number; onNavClick: (page: 'income' | 'expense') => void; currencySymbol: string;
+  currentPeriod: 'daily' | 'weekly' | 'monthly'; onPeriodChange: (period: 'daily' | 'weekly' | 'monthly') => void;
+  locale: string; t: (key: string) => string;
 }) => {
   const balance = (income - expenses).toFixed(2);
   return (
@@ -672,31 +812,21 @@ const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod,
 };
 
 const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: {
-  income: number;
-  weeklyIncome: number;
-  monthlyIncome: number;
-  addIncome: (amount: number, category: string) => void;
-  onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
-  currencySymbol: string;
-  dailyTransactions: Transaction[];
-  weeklyTransactions: Transaction[];
-  monthlyTransactions: Transaction[];
-  locale: string;
+  income: number; weeklyIncome: number; monthlyIncome: number;
+  addIncome: (data: any) => void;
+  onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void; currencySymbol: string; dailyTransactions: Transaction[];
+  weeklyTransactions: Transaction[]; monthlyTransactions: Transaction[]; locale: string;
   t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
-  const handleAddIncome = (amount: number, category: string) => { addIncome(amount, category); setIsModalOpen(false); };
+  const handleAddIncome = (data: any) => { addIncome(data); setIsModalOpen(false); };
 
   const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
   const currentTotal = period === 'daily' ? income : period === 'weekly' ? weeklyIncome : monthlyIncome;
   
-  const periodTranslations: Record<string, string> = {
-      daily: t('daily'),
-      weekly: t('weekly'),
-      monthly: t('monthly')
-  }
+  const periodTranslations: Record<string, string> = { daily: t('daily'), weekly: t('weekly'), monthly: t('monthly') }
 
   return (
     <div className="page-content">
@@ -717,44 +847,23 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
           <div className="card-value"><p className="amount">{currencySymbol}{monthlyIncome.toFixed(2)}</p></div>
         </div>
       </div>
-      <CategoryBreakdown 
-        title={t('income_breakdown', {period: periodTranslations[period]})}
-        transactions={currentTransactions}
-        totalAmount={currentTotal}
-        currencySymbol={currencySymbol}
-        type="income"
-        t={t}
-      />
+      <CategoryBreakdown title={t('income_breakdown', {period: periodTranslations[period]})} transactions={currentTransactions}
+        totalAmount={currentTotal} currencySymbol={currencySymbol} type="income" t={t} />
       <div className="period-selector">
         <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>{t('daily')}</button>
         <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
         <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
       </div>
-      <NumpadModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleAddIncome} 
-        title={t('add_income')} 
-        currencySymbol={currencySymbol}
-        categories={incomeCategories}
-        t={t}
-      />
+      <IncomeNumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddIncome} title={t('add_income')} 
+        currencySymbol={currencySymbol} categories={incomeCategories} t={t} />
     </div>
   );
 };
 
 const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: {
-    expenses: number;
-    weeklyExpenses: number;
-    monthlyExpenses: number;
-    addExpense: (amount: number, category: string) => void;
-    onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
-    currencySymbol: string;
-    dailyTransactions: Transaction[];
-    weeklyTransactions: Transaction[];
-    monthlyTransactions: Transaction[];
-    locale: string;
-    t: (key: string, replacements?: Record<string, string>) => string;
+    expenses: number; weeklyExpenses: number; monthlyExpenses: number; addExpense: (amount: number, category: string) => void;
+    onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void; currencySymbol: string; dailyTransactions: Transaction[];
+    weeklyTransactions: Transaction[]; monthlyTransactions: Transaction[]; locale: string; t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -764,11 +873,7 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
     const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
     const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
     
-    const periodTranslations: Record<string, string> = {
-      daily: t('daily'),
-      weekly: t('weekly'),
-      monthly: t('monthly')
-    }
+    const periodTranslations: Record<string, string> = { daily: t('daily'), weekly: t('weekly'), monthly: t('monthly') };
 
     return (
       <div className="page-content">
@@ -789,28 +894,15 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
             <div className="card-value"><p className="amount">{currencySymbol}{monthlyExpenses.toFixed(2)}</p></div>
           </div>
         </div>
-        <CategoryBreakdown 
-            title={t('expense_breakdown', {period: periodTranslations[period]})}
-            transactions={currentTransactions}
-            totalAmount={currentTotal}
-            currencySymbol={currencySymbol}
-            type="expense"
-            t={t}
-        />
+        <CategoryBreakdown title={t('expense_breakdown', {period: periodTranslations[period]})} transactions={currentTransactions}
+            totalAmount={currentTotal} currencySymbol={currencySymbol} type="expense" t={t} />
         <div className="period-selector">
             <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>{t('daily')}</button>
             <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
             <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
         </div>
-        <NumpadModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSubmit={handleAddExpense} 
-            title={t('add_expense')} 
-            currencySymbol={currencySymbol}
-            categories={expenseCategories}
-            t={t}
-        />
+        <NumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddExpense} title={t('add_expense')}
+            currencySymbol={currencySymbol} categories={expenseCategories} t={t} />
       </div>
     );
 };
@@ -827,10 +919,7 @@ const ContactModal = ({ isOpen, onClose, t }: { isOpen: boolean; onClose: () => 
         const subject = `Message from ${contactName} via Account Assistant`;
         const body = `Name: ${contactName}\nEmail: ${contactEmail}\nPhone: ${contactPhone || 'Not provided'}\n\nMessage:\n${contactMessage}`;
         window.location.href = `mailto:support@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        setContactName('');
-        setContactEmail('');
-        setContactPhone('');
-        setContactMessage('');
+        setContactName(''); setContactEmail(''); setContactPhone(''); setContactMessage('');
         onClose();
     };
 
@@ -847,46 +936,19 @@ const ContactModal = ({ isOpen, onClose, t }: { isOpen: boolean; onClose: () => 
                 <form className="contact-form" onSubmit={handleContactSubmit}>
                     <div className="form-field">
                         <label htmlFor="modal-contact-name">{t('contact_name')}</label>
-                        <input
-                            id="modal-contact-name"
-                            type="text"
-                            value={contactName}
-                            onChange={e => setContactName(e.target.value)}
-                            required
-                            placeholder={t('contact_your_name')}
-                        />
+                        <input id="modal-contact-name" type="text" value={contactName} onChange={e => setContactName(e.target.value)} required placeholder={t('contact_your_name')} />
                     </div>
                     <div className="form-field">
                         <label htmlFor="modal-contact-email">{t('contact_email')}</label>
-                        <input
-                            id="modal-contact-email"
-                            type="email"
-                            value={contactEmail}
-                            onChange={e => setContactEmail(e.target.value)}
-                            required
-                            placeholder={t('contact_your_email')}
-                        />
+                        <input id="modal-contact-email" type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} required placeholder={t('contact_your_email')} />
                     </div>
                     <div className="form-field">
                         <label htmlFor="modal-contact-phone">{t('contact_phone')}</label>
-                        <input
-                            id="modal-contact-phone"
-                            type="tel"
-                            value={contactPhone}
-                            onChange={e => setContactPhone(e.target.value)}
-                            placeholder={t('contact_your_phone')}
-                        />
+                        <input id="modal-contact-phone" type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder={t('contact_your_phone')} />
                     </div>
                     <div className="form-field">
                         <label htmlFor="modal-contact-message">{t('contact_message')}</label>
-                        <textarea
-                            id="modal-contact-message"
-                            value={contactMessage}
-                            onChange={e => setContactMessage(e.target.value)}
-                            required
-                            rows={5}
-                            placeholder={t('contact_enter_message')}
-                        />
+                        <textarea id="modal-contact-message" value={contactMessage} onChange={e => setContactMessage(e.target.value)} required rows={5} placeholder={t('contact_enter_message')} />
                     </div>
                     <button type="submit" className="action-button">{t('send_message')}</button>
                 </form>
@@ -895,16 +957,12 @@ const ContactModal = ({ isOpen, onClose, t }: { isOpen: boolean; onClose: () => 
     );
 };
 
-const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange, fontSize, onFontSizeChange, t }: {
-    theme: Theme;
-    onThemeChange: (theme: Theme) => void;
-    currency: Currency;
-    onCurrencyChange: (currency: Currency) => void;
-    fontSize: FontSize;
-    onFontSizeChange: (size: FontSize) => void;
-    t: (key: string) => string;
+const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange, fontSize, onFontSizeChange, vatRate, onVatChange, t }: {
+    theme: Theme; onThemeChange: (theme: Theme) => void; currency: Currency; onCurrencyChange: (currency: Currency) => void;
+    fontSize: FontSize; onFontSizeChange: (size: FontSize) => void; vatRate: number; onVatChange: (rate: number) => void; t: (key: string) => string;
 }) => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const vatOptions = [0, 5, 9, 10, 12, 15, 17, 19, 20, 21, 23, 24, 25];
 
   return (
     <div className="page-content">
@@ -928,25 +986,27 @@ const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange, fontSi
       <div className="settings-group">
         <h3>{t('currency')}</h3>
         <select className="currency-selector" value={currency} onChange={(e) => onCurrencyChange(e.target.value as Currency)}>
-          {Object.entries(currencyMap).map(([code, symbol]) => (
-            <option key={code} value={code}>{code} ({symbol})</option>
-          ))}
+          {Object.entries(currencyMap).map(([code, symbol]) => ( <option key={code} value={code}>{code} ({symbol})</option> ))}
+        </select>
+      </div>
+      <div className="settings-group">
+        <h3>{t('vat_rate')}</h3>
+        <select className="currency-selector" value={vatRate} onChange={(e) => onVatChange(parseFloat(e.target.value))}>
+            {vatOptions.map(rate => (<option key={rate} value={rate}>{rate}%</option>))}
         </select>
       </div>
       <div className="settings-group">
         <h3>{t('contact_us')}</h3>
         <p className="contact-intro">{t('contact_intro')}</p>
         <button className="action-button settings-action" onClick={() => setIsContactModalOpen(true)}>{t('contact_us')}</button>
-    </div>
-    <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} t={t} />
+      </div>
+      <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} t={t} />
     </div>
   );
 };
 
 const TaxPage = ({ transactions, currencySymbol, t }: {
-    transactions: Transaction[];
-    currencySymbol: string;
-    t: (key: string) => string;
+    transactions: Transaction[]; currencySymbol: string; t: (key: string) => string;
 }) => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
@@ -971,25 +1031,19 @@ const TaxPage = ({ transactions, currencySymbol, t }: {
         }, { income: 0, expense: 0 });
 
         return {
-            transactions: filtered,
-            totalIncome: totals.income,
-            totalExpense: totals.expense,
+            transactions: filtered, totalIncome: totals.income, totalExpense: totals.expense,
             balance: totals.income - totals.expense,
         };
     }, [transactions, startDate, endDate]);
 
     const generateCSV = () => {
         if (!reportData) return;
-        setReportReady(false); // Reset for next time
-
-        let csvContent = "Date,Type,Amount,Category\n";
+        setReportReady(false);
+        let csvContent = "Date,Type,Amount,Category,Document Type,Document Number,Client\n";
         reportData.transactions.forEach(tx => {
-            csvContent += `${new Date(tx.date).toLocaleString()},${tx.type},${tx.amount.toFixed(2)},${tx.category}\n`;
+            csvContent += `${new Date(tx.date).toLocaleString()},${tx.type},${tx.amount.toFixed(2)},${tx.category},${tx.documentType || ''},${tx.documentNumber || ''},${tx.clientName || ''}\n`;
         });
-        csvContent += "\n";
-        csvContent += `Total Income,${reportData.totalIncome.toFixed(2)}\n`;
-        csvContent += `Total Expense,${reportData.totalExpense.toFixed(2)}\n`;
-        csvContent += `Balance,${reportData.balance.toFixed(2)}\n`;
+        csvContent += `\nTotal Income,${reportData.totalIncome.toFixed(2)}\nTotal Expense,${reportData.totalExpense.toFixed(2)}\nBalance,${reportData.balance.toFixed(2)}\n`;
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1000,7 +1054,7 @@ const TaxPage = ({ transactions, currencySymbol, t }: {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setReportReady(true); // Indicate that download is done and email can be sent
+        setReportReady(true);
     };
     
     const sendEmail = () => {
@@ -1013,39 +1067,25 @@ const TaxPage = ({ transactions, currencySymbol, t }: {
         <div className="page-content">
             <h2>{t('tax_report')}</h2>
             <p className="page-subtitle">{t('tax_subtitle')}</p>
-
             <div className="date-selector-container">
                 <div className="date-selector" onClick={() => setCalendarOpen('start')}>
-                    <label>{t('start_date')}</label>
-                    <span>{startDate ? startDate.toLocaleDateString() : t('select_date')}</span>
+                    <label>{t('start_date')}</label><span>{startDate ? startDate.toLocaleDateString() : t('select_date')}</span>
                 </div>
                 <div className="date-selector" onClick={() => setCalendarOpen('end')}>
-                    <label>{t('end_date')}</label>
-                    <span>{endDate ? endDate.toLocaleDateString() : t('select_date')}</span>
+                    <label>{t('end_date')}</label><span>{endDate ? endDate.toLocaleDateString() : t('select_date')}</span>
                 </div>
             </div>
-
             {reportData && (
                 <div className="report-summary">
                     <h3>{t('report_summary')}</h3>
                     <div className="summary-item"><span>{t('total_income')}</span><span className="amount income">{currencySymbol}{reportData.totalIncome.toFixed(2)}</span></div>
                     <div className="summary-item"><span>{t('total_expense')}</span><span className="amount expense">{currencySymbol}{reportData.totalExpense.toFixed(2)}</span></div>
                     <div className="summary-item"><span>{t('balance')}</span><span className="amount balance">{currencySymbol}{reportData.balance.toFixed(2)}</span></div>
-                    {!reportReady ?
-                       <button className="action-button" onClick={generateCSV}>{t('download_csv')}</button> :
-                       <button className="action-button income" onClick={sendEmail}>{t('send_email')}</button>
-                    }
+                    {!reportReady ? <button className="action-button" onClick={generateCSV}>{t('download_csv')}</button> : <button className="action-button income" onClick={sendEmail}>{t('send_email')}</button>}
                 </div>
             )}
-
-            <CalendarModal 
-                isOpen={!!isCalendarOpen} 
-                onClose={() => setCalendarOpen(null)}
-                onSelectDate={date => {
-                    if (isCalendarOpen === 'start') setStartDate(date);
-                    if (isCalendarOpen === 'end') setEndDate(date);
-                }}
-            />
+            <CalendarModal isOpen={!!isCalendarOpen} onClose={() => setCalendarOpen(null)}
+                onSelectDate={date => { if (isCalendarOpen === 'start') setStartDate(date); if (isCalendarOpen === 'end') setEndDate(date); }} />
         </div>
     );
 };
@@ -1062,50 +1102,31 @@ const LanguageArrowIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="
 
 // --- Layout Components ---
 const Header = ({ t, language, onLanguageChange, user, onNavClick }: {
-    t: (key: string) => string;
-    language: Language;
-    onLanguageChange: (lang: Language) => void;
-    user: User | null;
-    onNavClick: (page: string) => void;
+    t: (key: string) => string; language: Language; onLanguageChange: (lang: Language) => void;
+    user: User | null; onNavClick: (page: string) => void;
 }) => (
     <header className="app-header">
         <div className="header-content">
-            <h1>{t('welcome')}</h1>
-            <p className="slogan">{t('slogan')}</p>
+            <h1>{t('welcome')}</h1><p className="slogan">{t('slogan')}</p>
         </div>
         <div className="header-controls">
             <div className="language-selector-wrapper">
-                <select
-                    className="language-selector"
-                    value={language}
-                    onChange={(e) => onLanguageChange(e.target.value as Language)}
-                    aria-label="Select language"
-                >
-                    <option value="en">EN</option>
-                    <option value="ro">RO</option>
+                <select className="language-selector" value={language} onChange={(e) => onLanguageChange(e.target.value as Language)} aria-label="Select language">
+                    <option value="en">EN</option><option value="ro">RO</option>
                 </select>
                 <LanguageArrowIcon />
             </div>
             {user && (
                 <button className="profile-button" onClick={() => onNavClick('profile')} aria-label="Go to profile page">
-                    {user.avatar ? (
-                        <img src={user.avatar} alt="User avatar" className="profile-avatar-icon" />
-                    ) : (
-                        <div className="profile-initials-icon">
-                            {user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                        </div>
-                    )}
+                    {user.avatar ? (<img src={user.avatar} alt="User avatar" className="profile-avatar-icon" />) : 
+                    (<div className="profile-initials-icon">{user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>)}
                 </button>
             )}
         </div>
     </header>
 );
 
-const Footer = ({ currentPage, onNavClick, t }: {
-  currentPage: string;
-  onNavClick: (page: string) => void;
-  t: (key: string) => string;
-}) => {
+const Footer = ({ currentPage, onNavClick, t }: { currentPage: string; onNavClick: (page: string) => void; t: (key: string) => string; }) => {
   const navItems = [
     { page: 'main', label: t('home'), icon: <HomeIcon /> },
     { page: 'income', label: t('income'), icon: <IncomeIcon /> },
@@ -1115,37 +1136,15 @@ const Footer = ({ currentPage, onNavClick, t }: {
   ];
   return (
     <footer className="app-footer">
-      <nav>
-        {navItems.map(item => (
-          <button
-            key={item.page}
-            className={currentPage === item.page ? 'active' : ''}
-            onClick={() => onNavClick(item.page)}
-            aria-label={`Go to ${item.label} page`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <nav>{navItems.map(item => ( <button key={item.page} className={currentPage === item.page ? 'active' : ''} onClick={() => onNavClick(item.page)} aria-label={`Go to ${item.label} page`}> {item.icon}<span>{item.label}</span></button>))} </nav>
     </footer>
   );
 };
 
 const ScrollToTop = ({ mainRef }: { mainRef: React.RefObject<HTMLElement> }) => {
     const [isVisible, setIsVisible] = useState(false);
-
-    const handleScroll = () => {
-        if (mainRef.current) {
-            setIsVisible(mainRef.current.scrollTop > 300);
-        }
-    };
-
-    const scrollToTop = () => {
-        if (mainRef.current) {
-            mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
+    const handleScroll = () => { if (mainRef.current) { setIsVisible(mainRef.current.scrollTop > 300); } };
+    const scrollToTop = () => { if (mainRef.current) { mainRef.current.scrollTo({ top: 0, behavior: 'smooth' }); } };
 
     useEffect(() => {
         const mainElement = mainRef.current;
@@ -1154,38 +1153,27 @@ const ScrollToTop = ({ mainRef }: { mainRef: React.RefObject<HTMLElement> }) => 
     }, [mainRef]);
 
     if (!isVisible) return null;
-
-    return (
-        <button className="scroll-to-top-button" onClick={scrollToTop} aria-label="Scroll to top">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
-        </button>
-    );
+    return ( <button className="scroll-to-top-button" onClick={scrollToTop} aria-label="Scroll to top"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>);
 };
 
 // --- Profile Page ---
 const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: {
-    user: User;
-    onUpdate: (updatedUser: User) => void;
-    onLogout: () => void;
-    onBack: () => void;
-    t: (key: string) => string;
+    user: User; onUpdate: (updatedUser: User) => void; onLogout: () => void; onBack: () => void; t: (key: string) => string;
 }) => {
     const [fullName, setFullName] = useState(user.fullName);
     const [username, setUsername] = useState(user.username);
     const [phone, setPhone] = useState(user.phone);
     const [avatar, setAvatar] = useState(user.avatar);
+    const [companyName, setCompanyName] = useState(user.companyName);
+    const [businessCode, setBusinessCode] = useState(user.businessRegistrationCode);
+    const [address, setAddress] = useState(user.address);
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const base64 = await fileToBase64(file);
-            setAvatar(base64);
-        }
+        if (e.target.files?.[0]) { setAvatar(await fileToBase64(e.target.files[0])); }
     };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onUpdate({ ...user, fullName, username, phone, avatar });
+        onUpdate({ ...user, fullName, username, phone, avatar, companyName, businessRegistrationCode: businessCode, address });
     };
 
     return (
@@ -1197,22 +1185,13 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: {
                     <label htmlFor="avatar-upload" className="action-button settings-action">{t('profile_picture')}</label>
                     <input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
                 </div>
-                <div className="form-field">
-                    <label htmlFor="email">{t('email_address')}</label>
-                    <input id="email" type="email" value={user.email} disabled />
-                </div>
-                <div className="form-field">
-                    <label htmlFor="fullName">{t('full_name')}</label>
-                    <input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required />
-                </div>
-                <div className="form-field">
-                    <label htmlFor="username">{t('username')}</label>
-                    <input id="username" type="text" value={username} onChange={e => setUsername(e.target.value)} required />
-                </div>
-                <div className="form-field">
-                    <label htmlFor="phone">{t('phone_number')}</label>
-                    <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
-                </div>
+                <div className="form-field"><label htmlFor="email">{t('email_address')}</label><input id="email" type="email" value={user.email} disabled /></div>
+                <div className="form-field"><label htmlFor="fullName">{t('full_name')}</label><input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required /></div>
+                <div className="form-field"><label htmlFor="username">{t('username')}</label><input id="username" type="text" value={username} onChange={e => setUsername(e.target.value)} required /></div>
+                <div className="form-field"><label htmlFor="phone">{t('phone_number')}</label><input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
+                <div className="form-field"><label htmlFor="companyName">{t('company_name')}</label><input id="companyName" type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
+                <div className="form-field"><label htmlFor="businessCode">{t('business_reg_code')}</label><input id="businessCode" type="text" value={businessCode} onChange={e => setBusinessCode(e.target.value)} /></div>
+                <div className="form-field"><label htmlFor="address">{t('address')}</label><textarea id="address" value={address} onChange={e => setAddress(e.target.value)} /></div>
                 <button type="submit" className="action-button">{t('update_profile')}</button>
             </form>
             <button className="action-button expense" onClick={onLogout}>{t('logout')}</button>
@@ -1237,9 +1216,7 @@ const AuthPage = ({ onLogin, onSignup, t }: {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsSubmitting(true);
+        e.preventDefault(); setError(''); setIsSubmitting(true);
         let success = false;
         if (isLoginView) {
             success = await onLogin(email, password);
@@ -1256,32 +1233,13 @@ const AuthPage = ({ onLogin, onSignup, t }: {
             <div className="auth-box">
                 <h1 className="auth-title">{isLoginView ? t('login') : t('signup')}</h1>
                 <form onSubmit={handleSubmit} className="auth-form">
-                    {!isLoginView && (
-                        <>
-                            <div className="form-field">
-                                <label htmlFor="auth-fullname">{t('full_name')}</label>
-                                <input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required disabled={isSubmitting} />
-                            </div>
-                            <div className="form-field">
-                                <label htmlFor="auth-username">{t('username')}</label>
-                                <input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required disabled={isSubmitting} />
-                            </div>
-                        </>
-                    )}
-                    <div className="form-field">
-                        <label htmlFor="auth-email">{t('email_address')}</label>
-                        <input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSubmitting} />
-                    </div>
-                    <div className="form-field">
-                        <label htmlFor="auth-password">{t('password')}</label>
-                        <input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={isSubmitting} />
-                    </div>
-                    {!isLoginView && (
-                        <div className="form-field">
-                            <label htmlFor="auth-phone">{t('phone_number')}</label>
-                            <input id="auth-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} disabled={isSubmitting} />
-                        </div>
-                    )}
+                    {!isLoginView && ( <>
+                        <div className="form-field"><label htmlFor="auth-fullname">{t('full_name')}</label><input id="auth-fullname" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required disabled={isSubmitting} /></div>
+                        <div className="form-field"><label htmlFor="auth-username">{t('username')}</label><input id="auth-username" type="text" value={username} onChange={e => setUsername(e.target.value)} required disabled={isSubmitting} /></div>
+                    </>)}
+                    <div className="form-field"><label htmlFor="auth-email">{t('email_address')}</label><input id="auth-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSubmitting} /></div>
+                    <div className="form-field"><label htmlFor="auth-password">{t('password')}</label><input id="auth-password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={isSubmitting} /></div>
+                    {!isLoginView && (<div className="form-field"><label htmlFor="auth-phone">{t('phone_number')}</label><input id="auth-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} disabled={isSubmitting} /></div> )}
                     {error && <p className="auth-error">{error}</p>}
                     <button type="submit" className="action-button auth-submit" disabled={isSubmitting}>
                         {isSubmitting ? <div className="button-spinner"></div> : (isLoginView ? t('login') : t('signup'))}
@@ -1302,6 +1260,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<View>({ page: 'main' });
+  const [viewingDocument, setViewingDocument] = useState<Transaction | null>(null);
   
   // User-specific states with defaults
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -1319,47 +1278,36 @@ function App() {
       return translation;
   }, [language]);
 
-  // Check for active session on initial load
   useEffect(() => {
     const checkSession = async () => {
         const sessionUserId = localStorage.getItem('session_userId');
         if (sessionUserId) {
             const loggedInUser = await supabaseClient.getUserById(parseInt(sessionUserId, 10));
-            if (loggedInUser) {
-                setUser(loggedInUser);
-            }
+            if (loggedInUser) setUser(loggedInUser);
         }
         setIsLoading(false);
     };
     checkSession();
   }, []);
 
-  // Load user data and settings when user logs in or changes
   useEffect(() => {
       const loadUserData = async () => {
           if (user) {
-              const userTransactions = await supabaseClient.getTransactions(user.id);
-              setTransactions(userTransactions);
-              
+              setTransactions(await supabaseClient.getTransactions(user.id));
               setTheme((localStorage.getItem(`theme_${user.id}`) as Theme) || 'auto');
               setFontSize((localStorage.getItem(`fontSize_${user.id}`) as FontSize) || 'medium');
               setCurrency((localStorage.getItem(`currency_${user.id}`) as Currency) || 'GBP');
               setLanguage((localStorage.getItem(`language_${user.id}`) as Language) || 'en');
           } else {
-              // Reset to defaults on logout
-              setTransactions([]);
-              setTheme('auto');
-              setFontSize('medium');
-              setCurrency('GBP');
-              setLanguage('en');
+              setTransactions([]); setTheme('auto'); setFontSize('medium'); setCurrency('GBP'); setLanguage('en');
           }
       };
       loadUserData();
   }, [user]);
 
-  // Save user-specific UI settings
   useEffect(() => { if (user) localStorage.setItem(`language_${user.id}`, language); }, [language, user]);
   useEffect(() => { if (user) localStorage.setItem(`currency_${user.id}`, currency); }, [currency, user]);
+  useEffect(() => { if (user) localStorage.setItem(`fontSize_${user.id}`, fontSize); document.documentElement.style.fontSize = ({ small: '14px', medium: '16px', large: '18px' })[fontSize]; }, [fontSize, user]);
   
   useEffect(() => {
     if (user) localStorage.setItem(`theme_${user.id}`, theme);
@@ -1376,63 +1324,55 @@ function App() {
     }
   }, [theme, user]);
 
-  useEffect(() => {
-    if (user) localStorage.setItem(`fontSize_${user.id}`, fontSize);
-    const sizeMap: Record<FontSize, string> = { small: '14px', medium: '16px', large: '18px' };
-    document.documentElement.style.fontSize = sizeMap[fontSize];
-  }, [fontSize, user]);
-
   const handleLogin = async (email: string, pass: string) => {
       const foundUser = await supabaseClient.login(email, pass);
-      if (foundUser) {
-          setUser(foundUser);
-          localStorage.setItem('session_userId', String(foundUser.id));
-          return true;
-      }
+      if (foundUser) { setUser(foundUser); localStorage.setItem('session_userId', String(foundUser.id)); return true; }
       return false;
   };
 
   const handleSignup = async (email: string, pass: string, fullName: string, username: string, phone: string) => {
     try {
-        const newUser = await supabaseClient.addUser({ email, fullName, username, phone, passwordHash: pass, avatar: '' });
+        const newUser = await supabaseClient.addUser({ email, fullName, username, phone, passwordHash: pass, avatar: '', companyName: '', businessRegistrationCode: '', address: '', vatRate: 0 });
         setUser(newUser);
         localStorage.setItem('session_userId', String(newUser.id));
         return true;
-    } catch (error) {
-        console.error(error);
-        return false;
-    }
+    } catch (error) { console.error(error); return false; }
   };
 
-  const handleLogout = () => {
-      setUser(null);
-      setView({ page: 'main' });
-      localStorage.removeItem('session_userId');
-  };
+  const handleLogout = () => { setUser(null); setView({ page: 'main' }); localStorage.removeItem('session_userId'); };
 
   const handleUpdateProfile = async (updatedUser: User) => {
     try {
         const result = await supabaseClient.updateUser(updatedUser);
         setUser(result);
+        if (updatedUser.vatRate !== user?.vatRate) {
+            localStorage.setItem(`vatRate_${result.id}`, String(updatedUser.vatRate));
+        }
         setView({ page: 'main' });
-    } catch (error) {
-        console.error("Failed to update profile", error);
-    }
+    } catch (error) { console.error("Failed to update profile", error); }
+  };
+
+  const handleVatChange = (rate: number) => {
+    if (!user) return;
+    const updatedUser = { ...user, vatRate: rate };
+    handleUpdateProfile(updatedUser);
   };
 
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  const addTransaction = useCallback(async (amount: number, type: 'income' | 'expense', category: string) => {
+  const addTransaction = useCallback(async (data: any) => {
     if (!user) return;
-    const newTransactionData = { userId: user.id, amount, type, category };
+    const prefix = data.documentType === 'invoice' ? 'FACT-' : 'CHIT-';
+    const newTransactionData = { 
+        userId: user.id, type: data.documentType ? 'income' : 'expense', ...data,
+        documentNumber: data.documentType ? `${prefix}${Date.now()}`: undefined
+    };
     const addedTransaction = await supabaseClient.addTransaction(newTransactionData);
     setTransactions(prev => [...prev, addedTransaction]);
   }, [user]);
 
-  const { 
-      dailyIncome, weeklyIncome, monthlyIncome, 
-      dailyExpenses, weeklyExpenses, monthlyExpenses,
+  const { dailyIncome, weeklyIncome, monthlyIncome, dailyExpenses, weeklyExpenses, monthlyExpenses,
       dailyTransactions, weeklyTransactions, monthlyTransactions
   } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
@@ -1458,51 +1398,35 @@ function App() {
   const handleNavClick = (page: 'main' | 'income' | 'expense' | 'settings' | 'tax' | 'profile') => setView({ page });
   const handleCardClick = (type: 'income' | 'expense', period: 'daily' | 'weekly' | 'monthly') => setView({ page: 'detail', transactionType: type, period });
   
-  if (isLoading) {
-      return <div className="loading-spinner"></div>;
-  }
-
-  if (!user) {
-      return <AuthPage onLogin={handleLogin} onSignup={handleSignup} t={t} />;
-  }
+  if (isLoading) { return <div className="loading-spinner"></div>; }
+  if (!user) { return <AuthPage onLogin={handleLogin} onSignup={handleSignup} t={t} />; }
 
   const renderPage = () => {
     const { page, period, transactionType } = view;
-
     switch (page) {
-      case 'profile':
-        return <ProfilePage user={user} onUpdate={handleUpdateProfile} onLogout={handleLogout} onBack={() => setView({ page: 'main' })} t={t} />;
+      case 'profile': return <ProfilePage user={user} onUpdate={handleUpdateProfile} onLogout={handleLogout} onBack={() => setView({ page: 'main' })} t={t} />;
       case 'history':
         const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
         return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
       case 'detail':
-        if (!transactionType || !period) {
-          setView({ page: 'main' });
-          return null;
-        }
-        const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth, };
+        if (!transactionType || !period) { setView({ page: 'main' }); return null; }
+        const filters = { daily: dateUtils.isToday, weekly: dateUtils.isThisWeek, monthly: dateUtils.isThisMonth };
         const relevantTransactions = transactions.filter(tx => tx.type === transactionType && filters[period](new Date(tx.date)));
         const onBack = () => setView({ page: transactionType });
         const onViewHistory = () => setView({ page: 'history', transactionType });
 
         switch (period) {
-          case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-          case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
-          case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
+          case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={setViewingDocument} t={t} />;
+          case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={setViewingDocument} t={t} />;
+          case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} onDocClick={setViewingDocument} t={t} />;
           default: setView({ page: 'main' }); return null;
         }
-      case 'income':
-        return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={(amount, category) => addTransaction(amount, 'income', category)} onCardClick={(period) => handleCardClick('income', period)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
-      case 'expense':
-        return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(amount, category) => addTransaction(amount, 'expense', category)} onCardClick={(period) => handleCardClick('expense', period)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
-      case 'settings':
-        return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} t={t} />;
-      case 'tax':
-        return <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t}/>;
-      case 'main':
-      default:
-        let incomeForPeriod = dailyIncome;
-        let expensesForPeriod = dailyExpenses;
+      case 'income': return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={(data) => addTransaction({ ...data, type: 'income' })} onCardClick={(p) => handleCardClick('income', p)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
+      case 'expense': return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(amount, category) => addTransaction({ amount, category, type: 'expense' })} onCardClick={(p) => handleCardClick('expense', p)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
+      case 'settings': return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} vatRate={user.vatRate} onVatChange={handleVatChange} t={t} />;
+      case 'tax': return <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t}/>;
+      case 'main': default:
+        let incomeForPeriod = dailyIncome, expensesForPeriod = dailyExpenses;
         if (mainViewPeriod === 'weekly') { incomeForPeriod = weeklyIncome; expensesForPeriod = weeklyExpenses; }
         else if (mainViewPeriod === 'monthly') { incomeForPeriod = monthlyIncome; expensesForPeriod = monthlyExpenses; }
         return <MainPage income={incomeForPeriod} expenses={expensesForPeriod} onNavClick={(p) => handleNavClick(p as 'income' | 'expense')} currencySymbol={currencySymbol} currentPeriod={mainViewPeriod} onPeriodChange={setMainViewPeriod} locale={locale} t={t} />;
@@ -1515,6 +1439,7 @@ function App() {
       <main ref={mainRef}>{renderPage()}</main>
       <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} t={t} />
       <ScrollToTop mainRef={mainRef} />
+      <DocumentViewerModal transaction={viewingDocument} user={user} currencySymbol={currencySymbol} onClose={() => setViewingDocument(null)} t={t} />
     </div>
   );
 }
