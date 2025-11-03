@@ -77,24 +77,91 @@ body.dark-theme .current-datetime {
 
 /* Header */
 .app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: linear-gradient(135deg, var(--primary-blue-light), var(--primary-blue-dark));
   color: var(--text-light);
-  padding: 20px 15px;
-  text-align: center;
+  padding: 15px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   transition: background 0.3s ease;
 }
 
+.header-content {
+    text-align: left;
+}
+
 .app-header h1 {
-  font-size: 1.8em;
+  font-size: 1.5em;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin: 0;
 }
 
 .app-header .slogan {
-  font-size: 1em;
+  font-size: 0.9em;
   font-weight: 300;
   opacity: 0.9;
+  margin: 0;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.language-selector-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    color: var(--text-light);
+}
+
+.language-selector-wrapper svg {
+    position: absolute;
+    right: 8px;
+    pointer-events: none;
+    width: 20px;
+    height: 20px;
+}
+
+.language-selector {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 5px 30px 5px 10px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.language-selector option {
+    background-color: var(--primary-blue-dark);
+    color: var(--text-light);
+}
+
+.auth-button {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.auth-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.auth-button svg {
+    fill: currentColor;
 }
 
 /* Main Content Area */
@@ -977,7 +1044,10 @@ body.dark-theme .category-percentage {
 
 @media (max-width: 768px) {
   .app-header h1 {
-    font-size: 1.5em;
+    font-size: 1.2em;
+  }
+  .app-header .slogan {
+      display: none;
   }
   main {
     padding: 15px;

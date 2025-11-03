@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 
 // --- Type Definitions ---
 type Transaction = {
-  id: string;
+  id: number;
   type: 'income' | 'expense';
   amount: number;
   date: string; // ISO 8601 format
@@ -18,6 +18,8 @@ type View = {
 };
 
 type Theme = 'light' | 'dark' | 'auto';
+type FontSize = 'small' | 'medium' | 'large';
+type Language = 'en' | 'ro';
 
 type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
 
@@ -33,6 +35,98 @@ const currencyMap: Record<Currency, string> = {
   'CHF': 'Fr',
   'INR': '₹',
 };
+
+const languageToLocaleMap: Record<Language, string> = {
+  'en': 'en-GB',
+  'ro': 'ro-RO',
+};
+
+const translations: Record<string, Record<Language, string>> = {
+  // General
+  income: { en: 'Income', ro: 'Venit' },
+  expense: { en: 'Expense', ro: 'Cheltuială' },
+  balance: { en: 'Balance', ro: 'Balanță' },
+  daily: { en: 'Daily', ro: 'Zilnic' },
+  weekly: { en: 'Weekly', ro: 'Săptămânal' },
+  monthly: { en: 'Monthly', ro: 'Lunar' },
+  back: { en: 'Back', ro: 'Înapoi' },
+  week: { en: 'Week', ro: 'Săptămâna'},
+  
+  // Header
+  welcome: { en: 'Welcome to Account Assistant', ro: 'Bun venit la Asistentul Contabil' },
+  slogan: { en: 'Your Accountancy Assistant for MTD', ro: 'Asistentul tău Contabil pentru MTD' },
+  
+  // Footer
+  home: { en: 'Home', ro: 'Acasă' },
+  tax: { en: 'Tax', ro: 'Taxe' },
+  settings: { en: 'Settings', ro: 'Setări' },
+  
+  // Main Page
+  dashboard: { en: 'Dashboard', ro: 'Panou de control' },
+  
+  // Income/Expense Pages
+  add_income: { en: 'Add Income', ro: 'Adaugă Venit' },
+  add_expense: { en: 'Add Expense', ro: 'Adaugă Cheltuială' },
+  income_breakdown: { en: '{period} Income Breakdown', ro: 'Detalii Venituri {period}' },
+  expense_breakdown: { en: '{period} Expense Breakdown', ro: 'Detalii Cheltuieli {period}' },
+  
+  // Numpad
+  add_entry: { en: 'Add Entry', ro: 'Adaugă Înregistrare' },
+  clear: { en: 'Clear', ro: 'Șterge' },
+  enter: { en: 'Enter', ro: 'Introdu' },
+  
+  // Detail Pages
+  todays_type: { en: 'Today\'s {type}', ro: '{type} de Azi' },
+  no_transactions_today: { en: 'No transactions for today.', ro: 'Nicio tranzacție azi.' },
+  this_weeks_type: { en: 'This Week\'s {type}', ro: '{type} Săptămâna Aceasta' },
+  no_transactions_week: { en: 'No transactions for this week.', ro: 'Nicio tranzacție săptămâna aceasta.' },
+  this_months_type: { en: 'This Month\'s {type}', ro: '{type} Luna Aceasta' },
+  view_history: { en: 'View History', ro: 'Vezi Istoric' },
+  no_transactions_month: { en: 'No transactions for this month.', ro: 'Nicio tranzacție luna aceasta.' },
+  
+  // History Page
+  monthly_history: { en: 'Monthly {type} History', ro: 'Istoric Lunar {type}' },
+
+  // Category Breakdown
+  no_transactions_period: { en: 'No transactions for this period.', ro: 'Nicio tranzacție pentru această perioadă.'},
+  
+  // Settings Page
+  appearance: { en: 'Appearance', ro: 'Aspect' },
+  light: { en: 'Light', ro: 'Luminos' },
+  dark: { en: 'Dark', ro: 'Întunecat' },
+  auto: { en: 'Auto', ro: 'Automat' },
+  font_size: { en: 'Font Size', ro: 'Dimensiune Font' },
+  small: { en: 'Small', ro: 'Mic' },
+  medium: { en: 'Medium', ro: 'Mediu' },
+  large: { en: 'Large', ro: 'Mare' },
+  currency: { en: 'Currency', ro: 'Monedă' },
+  contact_us: { en: 'Contact Us', ro: 'Contactează-ne' },
+  contact_intro: { en: 'Have a question or feedback? We\'d love to hear from you.', ro: 'Ai o întrebare sau un feedback? Ne-ar plăcea să auzim de la tine.' },
+  
+  // Contact Modal
+  contact_name: { en: 'Name', ro: 'Nume' },
+  contact_your_name: { en: 'Your Name', ro: 'Numele tău' },
+  contact_email: { en: 'Email', ro: 'Email' },
+  contact_your_email: { en: 'your@email.com', ro: 'emailul@tau.com' },
+  contact_phone: { en: 'Phone Number (Optional)', ro: 'Număr de Telefon (Opțional)' },
+  contact_your_phone: { en: 'Your Phone Number', ro: 'Numărul tău de telefon' },
+  contact_message: { en: 'Message', ro: 'Mesaj' },
+  contact_enter_message: { en: 'Enter your message here...', ro: 'Introdu mesajul tău aici...' },
+  send_message: { en: 'Send Message', ro: 'Trimite Mesaj' },
+
+  // Tax Page
+  tax_report: { en: 'Tax Report', ro: 'Raport Fiscal' },
+  tax_subtitle: { en: 'Select a period to generate your report.', ro: 'Selectează o perioadă pentru a genera raportul.' },
+  start_date: { en: 'Start Date', ro: 'Data de început' },
+  end_date: { en: 'End Date', ro: 'Data de sfârșit' },
+  select_date: { en: 'Select a date', ro: 'Selectează o dată' },
+  report_summary: { en: 'Report Summary', ro: 'Sumar Raport' },
+  total_income: { en: 'Total Income:', ro: 'Venit Total:' },
+  total_expense: { en: 'Total Expense:', ro: 'Cheltuieli Totale:' },
+  download_csv: { en: 'Download Report (.csv)', ro: 'Descarcă Raport (.csv)' },
+  send_email: { en: 'Send Email', ro: 'Trimite Email' },
+};
+
 
 const dateUtils = {
   isToday: (date: Date) => {
@@ -54,11 +148,37 @@ const dateUtils = {
     const today = new Date();
     return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
   },
-  getWeekOfMonth: (date: Date) => {
+  getWeekOfMonth: (date: Date, t: (key: string) => string) => {
     const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
     const offsetDate = date.getDate() + firstDayOfMonth - 1;
-    return Math.floor(offsetDate / 7) + 1;
+    return `${t('week')} ${Math.floor(offsetDate / 7) + 1}`;
   }
+};
+
+// --- Current Date Time Component ---
+const CurrentDateTime = ({ locale }: { locale: string }) => {
+    const [dateTime, setDateTime] = useState(new Date());
+
+    useEffect(() => {
+        const timerId = setInterval(() => setDateTime(new Date()), 1000);
+        return () => clearInterval(timerId);
+    }, []);
+
+    const formattedDateTime = dateTime.toLocaleString(locale, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+
+    return (
+        <div className="current-datetime">
+            <p>{formattedDateTime}</p>
+        </div>
+    );
 };
 
 
@@ -122,13 +242,14 @@ const CalendarModal = ({ isOpen, onClose, onSelectDate }: {
 
 
 // --- Numpad Modal Component ---
-const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories }: {
+const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (amount: number, category: string) => void;
     title: string;
     currencySymbol: string;
     categories?: string[];
+    t: (key: string) => string;
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(categories && categories.length > 0 ? categories[0] : 'other');
@@ -165,7 +286,7 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-           <h3>{title || 'Add Entry'}</h3>
+           <h3>{title || t('add_entry')}</h3>
            <button onClick={onClose} className="close-button" aria-label="Close modal">&times;</button>
         </div>
         
@@ -202,18 +323,18 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
         <div className="numpad-display" aria-live="polite">{currencySymbol}{inputValue || '0.00'}</div>
         <div className="numpad-grid">
           {numpadKeys.map(key => <button key={key} onClick={() => handleButtonClick(key)} className="numpad-button">{key}</button>)}
-          <button onClick={handleClear} className="numpad-button action">Clear</button>
+          <button onClick={handleClear} className="numpad-button action">{t('clear')}</button>
         </div>
-        <button onClick={handleEnter} className="numpad-enter-button">Enter</button>
+        <button onClick={handleEnter} className="numpad-enter-button">{t('enter')}</button>
       </div>
     </div>
   );
 };
 
 // --- Detail Page Components ---
-const DetailHeader = ({ title, onBack }: { title: string; onBack: () => void; }) => (
+const DetailHeader = ({ title, onBack, t }: { title: string; onBack: () => void; t: (key: string) => string}) => (
   <div className="detail-header">
-    <button onClick={onBack} className="back-button">&larr; Back</button>
+    <button onClick={onBack} className="back-button">&larr; {t('back')}</button>
     <h2>{title}</h2>
   </div>
 );
@@ -228,32 +349,34 @@ const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: 
   </li>
 );
 
-const DailyDetailPage = ({ transactions, type, onBack, currencySymbol }: {
+const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
   transactions: Transaction[];
   type: 'income' | 'expense';
   onBack: () => void;
   currencySymbol: string;
+  t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
-  const title = `Today's ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  const title = t('todays_type', { type: t(type) });
   return (
     <div className="page-content">
-      <DetailHeader title={title} onBack={onBack} />
+      <DetailHeader title={title} onBack={onBack} t={t} />
       <ul className="transaction-list">
         {transactions.length > 0 ? (
           transactions.map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} />)
-        ) : <p>No transactions for today.</p>}
+        ) : <p>{t('no_transactions_today')}</p>}
       </ul>
     </div>
   );
 };
 
-const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol }: {
+const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, t }: {
   transactions: Transaction[];
   type: 'income' | 'expense';
   onBack: () => void;
   currencySymbol: string;
+  t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
-  const title = `This Week's ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  const title = t('this_weeks_type', { type: t(type) });
   const groupedByDay = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => {
     const day = new Date(tx.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     if (!acc[day]) acc[day] = [];
@@ -263,7 +386,7 @@ const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol }: {
 
   return (
     <div className="page-content">
-      <DetailHeader title={title} onBack={onBack} />
+      <DetailHeader title={title} onBack={onBack} t={t}/>
       {Object.keys(groupedByDay).length > 0 ? (
         Object.entries(groupedByDay).map(([day, txs]) => (
           <div key={day}>
@@ -273,21 +396,22 @@ const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol }: {
             </ul>
           </div>
         ))
-      ) : <p>No transactions for this week.</p>}
+      ) : <p>{t('no_transactions_week')}</p>}
     </div>
   );
 };
 
-const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol }: {
+const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol, t }: {
     transactions: Transaction[];
     type: 'income' | 'expense';
     onBack: () => void;
     onViewHistory: () => void;
     currencySymbol: string;
+    t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
-    const title = `This Month's ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    const title = t('this_months_type', { type: t(type) });
     const groupedByWeek = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => {
-        const week = `Week ${dateUtils.getWeekOfMonth(new Date(tx.date))}`;
+        const week = dateUtils.getWeekOfMonth(new Date(tx.date), t);
         if (!acc[week]) acc[week] = [];
         acc[week].push(tx);
         return acc;
@@ -295,8 +419,8 @@ const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currency
 
     return (
         <div className="page-content">
-            <DetailHeader title={title} onBack={onBack} />
-            <button className="action-button" onClick={onViewHistory}>View History</button>
+            <DetailHeader title={title} onBack={onBack} t={t} />
+            <button className="action-button" onClick={onViewHistory}>{t('view_history')}</button>
             {Object.keys(groupedByWeek).length > 0 ? (
                 Object.entries(groupedByWeek).map(([week, txs]) => (
                     <div key={week}>
@@ -306,18 +430,19 @@ const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currency
                         </ul>
                     </div>
                 ))
-            ) : <p>No transactions for this month.</p>}
+            ) : <p>{t('no_transactions_month')}</p>}
         </div>
     );
 };
 
-const HistoryPage = ({ transactions, type, onBack, currencySymbol }: {
+const HistoryPage = ({ transactions, type, onBack, currencySymbol, t }: {
     transactions: Transaction[];
     type: 'income' | 'expense';
     onBack: () => void;
     currencySymbol: string;
+    t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
-    const title = `Monthly ${type.charAt(0).toUpperCase() + type.slice(1)} History`;
+    const title = t('monthly_history', { type: t(type) });
     const monthlyTotals = useMemo(() => {
         const totals: { [key: string]: number } = {};
         const now = new Date();
@@ -336,7 +461,7 @@ const HistoryPage = ({ transactions, type, onBack, currencySymbol }: {
 
     return (
         <div className="page-content">
-            <DetailHeader title={title} onBack={onBack} />
+            <DetailHeader title={title} onBack={onBack} t={t}/>
             <ul className="history-list">
                 {Object.entries(monthlyTotals).map(([month, total]: [string, number]) => (
                      <li key={month} className="history-item">
@@ -349,127 +474,250 @@ const HistoryPage = ({ transactions, type, onBack, currencySymbol }: {
     );
 };
 
+// --- Category Breakdown Component ---
+const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, type, t }: {
+    title: string;
+    transactions: Transaction[];
+    totalAmount: number;
+    currencySymbol: string;
+    type: 'income' | 'expense';
+    t: (key: string) => string;
+}) => {
+    const breakdown = useMemo(() => {
+        if (totalAmount === 0) return [];
+        const grouped = transactions.reduce((acc, tx) => {
+            if (tx.type === type) {
+                 acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(grouped)
+            .map(([category, amount]) => ({
+                category,
+                amount,
+                percentage: (amount / totalAmount) * 100,
+            }))
+            .sort((a, b) => b.amount - a.amount);
+    }, [transactions, totalAmount, type]);
+
+    return (
+        <div className="category-breakdown-container">
+            <h3>{title}</h3>
+            {breakdown.length > 0 ? (
+                <ul className="category-list">
+                    {breakdown.map(({ category, amount, percentage }) => (
+                        <li key={category} className="category-item">
+                            <div className="category-info">
+                                <span className="category-name">{category}</span>
+                                <span className={`category-amount amount ${type}`}>{currencySymbol}{amount.toFixed(2)}</span>
+                            </div>
+                            <div className="progress-bar-container">
+                                <div
+                                    className={`progress-bar ${type}`}
+                                    style={{ width: `${percentage}%` }}
+                                    role="progressbar"
+                                    aria-valuenow={percentage}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`${category} accounts for ${percentage.toFixed(1)}%`}
+                                ></div>
+                            </div>
+                            <span className="category-percentage">{percentage.toFixed(1)}%</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : <p>{t('no_transactions_period')}</p>}
+        </div>
+    );
+};
+
 
 // --- Main Page Components ---
-const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange }: {
+const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod, onPeriodChange, locale, t }: {
   income: number;
   expenses: number;
   onNavClick: (page: 'income' | 'expense') => void;
   currencySymbol: string;
   currentPeriod: 'daily' | 'weekly' | 'monthly';
   onPeriodChange: (period: 'daily' | 'weekly' | 'monthly') => void;
+  locale: string;
+  t: (key: string) => string;
 }) => {
   const balance = (income - expenses).toFixed(2);
   return (
     <div className="page-content">
-      <h2>Dashboard</h2>
-      <div className="period-selector">
-        <button onClick={() => onPeriodChange('daily')} className={currentPeriod === 'daily' ? 'active' : ''}>Daily</button>
-        <button onClick={() => onPeriodChange('weekly')} className={currentPeriod === 'weekly' ? 'active' : ''}>Weekly</button>
-        <button onClick={() => onPeriodChange('monthly')} className={currentPeriod === 'monthly' ? 'active' : ''}>Monthly</button>
-      </div>
+      <CurrentDateTime locale={locale} />
+      <h2>{t('dashboard')}</h2>
       <div className="cards-list">
         <div className="income-card-styled income clickable" onClick={() => onNavClick('income')}>
-          <div className="card-label"><h3>Income</h3></div>
+          <div className="card-label"><h3>{t('income')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{income.toFixed(2)}</p></div>
         </div>
         <div className="income-card-styled expense clickable" onClick={() => onNavClick('expense')}>
-          <div className="card-label"><h3>Expense</h3></div>
+          <div className="card-label"><h3>{t('expense')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div>
         </div>
         <div className="income-card-styled balance">
-          <div className="card-label"><h3>Balance</h3></div>
+          <div className="card-label"><h3>{t('balance')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{balance}</p></div>
         </div>
+      </div>
+      <div className="period-selector">
+        <button onClick={() => onPeriodChange('daily')} className={currentPeriod === 'daily' ? 'active' : ''}>{t('daily')}</button>
+        <button onClick={() => onPeriodChange('weekly')} className={currentPeriod === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
+        <button onClick={() => onPeriodChange('monthly')} className={currentPeriod === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
       </div>
     </div>
   );
 };
 
-const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol }: {
+const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: {
   income: number;
   weeklyIncome: number;
   monthlyIncome: number;
   addIncome: (amount: number, category: string) => void;
   onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
   currencySymbol: string;
+  dailyTransactions: Transaction[];
+  weeklyTransactions: Transaction[];
+  monthlyTransactions: Transaction[];
+  locale: string;
+  t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
   const handleAddIncome = (amount: number, category: string) => { addIncome(amount, category); setIsModalOpen(false); };
+
+  const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
+  const currentTotal = period === 'daily' ? income : period === 'weekly' ? weeklyIncome : monthlyIncome;
+  
+  const periodTranslations: Record<string, string> = {
+      daily: t('daily'),
+      weekly: t('weekly'),
+      monthly: t('monthly')
+  }
+
   return (
     <div className="page-content">
-      <h2>Income</h2>
-      <button className="action-button" onClick={() => setIsModalOpen(true)}>Add Income</button>
+      <CurrentDateTime locale={locale} />
+      <h2>{t('income')}</h2>
+      <button className="action-button" onClick={() => setIsModalOpen(true)}>{t('add_income')}</button>
       <div className="cards-list">
         <div className="income-card-styled income clickable" onClick={() => onCardClick('daily')}>
-          <div className="card-label"><h3>Daily</h3></div>
+          <div className="card-label"><h3>{t('daily')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{income.toFixed(2)}</p></div>
         </div>
         <div className="income-card-styled income clickable" onClick={() => onCardClick('weekly')}>
-          <div className="card-label"><h3>Weekly</h3></div>
+          <div className="card-label"><h3>{t('weekly')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{weeklyIncome.toFixed(2)}</p></div>
         </div>
         <div className="income-card-styled income clickable" onClick={() => onCardClick('monthly')}>
-          <div className="card-label"><h3>Monthly</h3></div>
+          <div className="card-label"><h3>{t('monthly')}</h3></div>
           <div className="card-value"><p className="amount">{currencySymbol}{monthlyIncome.toFixed(2)}</p></div>
         </div>
+      </div>
+      <CategoryBreakdown 
+        title={t('income_breakdown', {period: periodTranslations[period]})}
+        transactions={currentTransactions}
+        totalAmount={currentTotal}
+        currencySymbol={currencySymbol}
+        type="income"
+        t={t}
+      />
+      <div className="period-selector">
+        <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>{t('daily')}</button>
+        <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
+        <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
       </div>
       <NumpadModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSubmit={handleAddIncome} 
-        title="Add Income" 
+        title={t('add_income')} 
         currencySymbol={currencySymbol}
         categories={incomeCategories}
+        t={t}
       />
     </div>
   );
 };
 
-const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol }: {
+const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: {
     expenses: number;
     weeklyExpenses: number;
     monthlyExpenses: number;
     addExpense: (amount: number, category: string) => void;
     onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void;
     currencySymbol: string;
+    dailyTransactions: Transaction[];
+    weeklyTransactions: Transaction[];
+    monthlyTransactions: Transaction[];
+    locale: string;
+    t: (key: string, replacements?: Record<string, string>) => string;
 }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
     const handleAddExpense = (amount: number, category: string) => { addExpense(amount, category); setIsModalOpen(false); };
+    
+    const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
+    const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
+    
+    const periodTranslations: Record<string, string> = {
+      daily: t('daily'),
+      weekly: t('weekly'),
+      monthly: t('monthly')
+    }
+
     return (
       <div className="page-content">
-        <h2>Expense</h2>
-        <button className="action-button expense" onClick={() => setIsModalOpen(true)}>Add Expense</button>
+        <CurrentDateTime locale={locale} />
+        <h2>{t('expense')}</h2>
+        <button className="action-button expense" onClick={() => setIsModalOpen(true)}>{t('add_expense')}</button>
          <div className="cards-list">
           <div className="income-card-styled expense clickable" onClick={() => onCardClick('daily')}>
-            <div className="card-label"><h3>Daily</h3></div>
+            <div className="card-label"><h3>{t('daily')}</h3></div>
             <div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div>
           </div>
           <div className="income-card-styled expense clickable" onClick={() => onCardClick('weekly')}>
-            <div className="card-label"><h3>Weekly</h3></div>
+            <div className="card-label"><h3>{t('weekly')}</h3></div>
             <div className="card-value"><p className="amount">{currencySymbol}{weeklyExpenses.toFixed(2)}</p></div>
           </div>
           <div className="income-card-styled expense clickable" onClick={() => onCardClick('monthly')}>
-            <div className="card-label"><h3>Monthly</h3></div>
+            <div className="card-label"><h3>{t('monthly')}</h3></div>
             <div className="card-value"><p className="amount">{currencySymbol}{monthlyExpenses.toFixed(2)}</p></div>
           </div>
+        </div>
+        <CategoryBreakdown 
+            title={t('expense_breakdown', {period: periodTranslations[period]})}
+            transactions={currentTransactions}
+            totalAmount={currentTotal}
+            currencySymbol={currencySymbol}
+            type="expense"
+            t={t}
+        />
+        <div className="period-selector">
+            <button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>{t('daily')}</button>
+            <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
+            <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
         </div>
         <NumpadModal 
             isOpen={isModalOpen} 
             onClose={() => setIsModalOpen(false)} 
             onSubmit={handleAddExpense} 
-            title="Add Expense" 
+            title={t('add_expense')} 
             currencySymbol={currencySymbol}
             categories={expenseCategories}
+            t={t}
         />
       </div>
     );
 };
 
 // --- Contact Modal Component ---
-const ContactModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) => {
+const ContactModal = ({ isOpen, onClose, t }: { isOpen: boolean; onClose: () => void; t: (key: string) => string; }) => {
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
@@ -493,82 +741,93 @@ const ContactModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
         <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h3>Contact Us</h3>
+                    <h3>{t('contact_us')}</h3>
                     <button onClick={onClose} className="close-button" aria-label="Close modal">&times;</button>
                 </div>
-                <p className="contact-intro">Have a question or feedback? We'd love to hear from you.</p>
+                <p className="contact-intro">{t('contact_intro')}</p>
                 <form className="contact-form" onSubmit={handleContactSubmit}>
                     <div className="form-field">
-                        <label htmlFor="modal-contact-name">Name</label>
+                        <label htmlFor="modal-contact-name">{t('contact_name')}</label>
                         <input
                             id="modal-contact-name"
                             type="text"
                             value={contactName}
                             onChange={e => setContactName(e.target.value)}
                             required
-                            placeholder="Your Name"
+                            placeholder={t('contact_your_name')}
                         />
                     </div>
                     <div className="form-field">
-                        <label htmlFor="modal-contact-email">Email</label>
+                        <label htmlFor="modal-contact-email">{t('contact_email')}</label>
                         <input
                             id="modal-contact-email"
                             type="email"
                             value={contactEmail}
                             onChange={e => setContactEmail(e.target.value)}
                             required
-                            placeholder="your@email.com"
+                            placeholder={t('contact_your_email')}
                         />
                     </div>
                     <div className="form-field">
-                        <label htmlFor="modal-contact-phone">Phone Number (Optional)</label>
+                        <label htmlFor="modal-contact-phone">{t('contact_phone')}</label>
                         <input
                             id="modal-contact-phone"
                             type="tel"
                             value={contactPhone}
                             onChange={e => setContactPhone(e.target.value)}
-                            placeholder="Your Phone Number"
+                            placeholder={t('contact_your_phone')}
                         />
                     </div>
                     <div className="form-field">
-                        <label htmlFor="modal-contact-message">Message</label>
+                        <label htmlFor="modal-contact-message">{t('contact_message')}</label>
                         <textarea
                             id="modal-contact-message"
                             value={contactMessage}
                             onChange={e => setContactMessage(e.target.value)}
                             required
                             rows={5}
-                            placeholder="Enter your message here..."
+                            placeholder={t('contact_enter_message')}
                         />
                     </div>
-                    <button type="submit" className="action-button">Send Message</button>
+                    <button type="submit" className="action-button">{t('send_message')}</button>
                 </form>
             </div>
         </div>
     );
 };
 
-const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange }: {
+const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange, fontSize, onFontSizeChange, t }: {
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     currency: Currency;
     onCurrencyChange: (currency: Currency) => void;
+    fontSize: FontSize;
+    onFontSizeChange: (size: FontSize) => void;
+    t: (key: string) => string;
 }) => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   return (
     <div className="page-content">
-      <h2>Settings</h2>
+      <h2>{t('settings')}</h2>
       <div className="settings-group">
-        <h3>Appearance</h3>
+        <h3>{t('appearance')}</h3>
         <div className="theme-selector">
-          <button onClick={() => onThemeChange('light')} className={theme === 'light' ? 'active' : ''}>Light</button>
-          <button onClick={() => onThemeChange('dark')} className={theme === 'dark' ? 'active' : ''}>Dark</button>
-          <button onClick={() => onThemeChange('auto')} className={theme === 'auto' ? 'active' : ''}>Auto</button>
+          <button onClick={() => onThemeChange('light')} className={theme === 'light' ? 'active' : ''}>{t('light')}</button>
+          <button onClick={() => onThemeChange('dark')} className={theme === 'dark' ? 'active' : ''}>{t('dark')}</button>
+          <button onClick={() => onThemeChange('auto')} className={theme === 'auto' ? 'active' : ''}>{t('auto')}</button>
         </div>
       </div>
       <div className="settings-group">
-        <h3>Currency</h3>
+        <h3>{t('font_size')}</h3>
+        <div className="theme-selector">
+          <button onClick={() => onFontSizeChange('small')} className={fontSize === 'small' ? 'active' : ''}>{t('small')}</button>
+          <button onClick={() => onFontSizeChange('medium')} className={fontSize === 'medium' ? 'active' : ''}>{t('medium')}</button>
+          <button onClick={() => onFontSizeChange('large')} className={fontSize === 'large' ? 'active' : ''}>{t('large')}</button>
+        </div>
+      </div>
+      <div className="settings-group">
+        <h3>{t('currency')}</h3>
         <select className="currency-selector" value={currency} onChange={(e) => onCurrencyChange(e.target.value as Currency)}>
           {Object.entries(currencyMap).map(([code, symbol]) => (
             <option key={code} value={code}>{code} ({symbol})</option>
@@ -576,18 +835,19 @@ const SettingsPage = ({ theme, onThemeChange, currency, onCurrencyChange }: {
         </select>
       </div>
       <div className="settings-group">
-        <h3>Contact Us</h3>
-        <p className="contact-intro">Have a question or feedback? We'd love to hear from you.</p>
-        <button className="action-button settings-action" onClick={() => setIsContactModalOpen(true)}>Contact Us</button>
+        <h3>{t('contact_us')}</h3>
+        <p className="contact-intro">{t('contact_intro')}</p>
+        <button className="action-button settings-action" onClick={() => setIsContactModalOpen(true)}>{t('contact_us')}</button>
     </div>
-    <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
+    <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} t={t} />
     </div>
   );
 };
 
-const TaxPage = ({ transactions, currencySymbol }: {
+const TaxPage = ({ transactions, currencySymbol, t }: {
     transactions: Transaction[];
     currencySymbol: string;
+    t: (key: string) => string;
 }) => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
@@ -645,36 +905,36 @@ const TaxPage = ({ transactions, currencySymbol }: {
     };
     
     const sendEmail = () => {
-        const subject = "Tax Report";
+        const subject = t('tax_report');
         const body = `Hello,\n\nPlease find my tax report attached for the period from ${startDate!.toLocaleDateString()} to ${endDate!.toLocaleDateString()}.\n\nThank you.`;
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
     return (
         <div className="page-content">
-            <h2>Tax Report</h2>
-            <p className="page-subtitle">Select a period to generate your report.</p>
+            <h2>{t('tax_report')}</h2>
+            <p className="page-subtitle">{t('tax_subtitle')}</p>
 
             <div className="date-selector-container">
                 <div className="date-selector" onClick={() => setCalendarOpen('start')}>
-                    <label>Start Date</label>
-                    <span>{startDate ? startDate.toLocaleDateString() : 'Select a date'}</span>
+                    <label>{t('start_date')}</label>
+                    <span>{startDate ? startDate.toLocaleDateString() : t('select_date')}</span>
                 </div>
                 <div className="date-selector" onClick={() => setCalendarOpen('end')}>
-                    <label>End Date</label>
-                    <span>{endDate ? endDate.toLocaleDateString() : 'Select a date'}</span>
+                    <label>{t('end_date')}</label>
+                    <span>{endDate ? endDate.toLocaleDateString() : t('select_date')}</span>
                 </div>
             </div>
 
             {reportData && (
                 <div className="report-summary">
-                    <h3>Report Summary</h3>
-                    <div className="summary-item"><span>Total Income:</span><span className="amount income">{currencySymbol}{reportData.totalIncome.toFixed(2)}</span></div>
-                    <div className="summary-item"><span>Total Expense:</span><span className="amount expense">{currencySymbol}{reportData.totalExpense.toFixed(2)}</span></div>
-                    <div className="summary-item"><span>Balance:</span><span className="amount balance">{currencySymbol}{reportData.balance.toFixed(2)}</span></div>
+                    <h3>{t('report_summary')}</h3>
+                    <div className="summary-item"><span>{t('total_income')}</span><span className="amount income">{currencySymbol}{reportData.totalIncome.toFixed(2)}</span></div>
+                    <div className="summary-item"><span>{t('total_expense')}</span><span className="amount expense">{currencySymbol}{reportData.totalExpense.toFixed(2)}</span></div>
+                    <div className="summary-item"><span>{t('balance')}</span><span className="amount balance">{currencySymbol}{reportData.balance.toFixed(2)}</span></div>
                     {!reportReady ?
-                       <button className="action-button" onClick={generateCSV}>Download Report (.csv)</button> :
-                       <button className="action-button income" onClick={sendEmail}>Send Email</button>
+                       <button className="action-button" onClick={generateCSV}>{t('download_csv')}</button> :
+                       <button className="action-button income" onClick={sendEmail}>{t('send_email')}</button>
                     }
                 </div>
             )}
@@ -696,27 +956,54 @@ const TaxPage = ({ transactions, currencySymbol }: {
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
+const AuthIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>;
+const LanguageArrowIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M7 10l5 5 5-5H7z"/></svg>;
+
 
 // --- Layout Components ---
-const Header = () => (
-  <header className="app-header">
-    <h1>Welcome to Account Assistant</h1>
-    <p className="slogan">Your Accountancy Assistant for MTD</p>
-  </header>
+const Header = ({ t, language, onLanguageChange }: {
+    t: (key: string) => string;
+    language: Language;
+    onLanguageChange: (lang: Language) => void;
+}) => (
+    <header className="app-header">
+        <div className="header-content">
+            <h1>{t('welcome')}</h1>
+            <p className="slogan">{t('slogan')}</p>
+        </div>
+        <div className="header-controls">
+            <div className="language-selector-wrapper">
+                <select
+                    className="language-selector"
+                    value={language}
+                    onChange={(e) => onLanguageChange(e.target.value as Language)}
+                    aria-label="Select language"
+                >
+                    <option value="en">EN</option>
+                    <option value="ro">RO</option>
+                </select>
+                <LanguageArrowIcon />
+            </div>
+            <button className="auth-button" aria-label="Authentication">
+                <AuthIcon />
+            </button>
+        </div>
+    </header>
 );
 
-const Footer = ({ currentPage, onNavClick }: {
+const Footer = ({ currentPage, onNavClick, t }: {
   currentPage: string;
   onNavClick: (page: string) => void;
+  t: (key: string) => string;
 }) => {
   const navItems = [
-    { page: 'main', label: 'Home', icon: <HomeIcon /> },
-    { page: 'income', label: 'Income', icon: <IncomeIcon /> },
-    { page: 'expense', label: 'Expense', icon: <ExpenseIcon /> },
-    { page: 'tax', label: 'Tax', icon: <TaxIcon /> },
-    { page: 'settings', label: 'Settings', icon: <SettingsIcon /> },
+    { page: 'main', label: t('home'), icon: <HomeIcon /> },
+    { page: 'income', label: t('income'), icon: <IncomeIcon /> },
+    { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> },
+    { page: 'tax', label: t('tax'), icon: <TaxIcon /> },
+    { page: 'settings', label: t('settings'), icon: <SettingsIcon /> },
   ];
   return (
     <footer className="app-footer">
@@ -737,21 +1024,71 @@ const Footer = ({ currentPage, onNavClick }: {
   );
 };
 
+const ScrollToTop = ({ mainRef }: { mainRef: React.RefObject<HTMLElement> }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    const handleScroll = () => {
+        if (mainRef.current) {
+            setIsVisible(mainRef.current.scrollTop > 300);
+        }
+    };
+
+    const scrollToTop = () => {
+        if (mainRef.current) {
+            mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    useEffect(() => {
+        const mainElement = mainRef.current;
+        mainElement?.addEventListener('scroll', handleScroll);
+        return () => mainElement?.removeEventListener('scroll', handleScroll);
+    }, [mainRef]);
+
+    if (!isVisible) return null;
+
+    return (
+        <button className="scroll-to-top-button" onClick={scrollToTop} aria-label="Scroll to top">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+        </button>
+    );
+};
+
 
 // --- Main App Component ---
 function App() {
+  const mainRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<View>({ page: 'main' });
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('transactions');
-    return saved ? JSON.parse(saved) : [];
+    try {
+        const saved = localStorage.getItem('transactions');
+        return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+        console.error("Could not parse transactions from localStorage", error);
+        return [];
+    }
   });
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
+  const [fontSize, setFontSize] = useState<FontSize>(() => (localStorage.getItem('fontSize') as FontSize) || 'medium');
   const [currency, setCurrency] = useState<Currency>(() => (localStorage.getItem('currency') as Currency) || 'GBP');
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
   const [mainViewPeriod, setMainViewPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
+  const t = useCallback((key: string, replacements: Record<string, string> = {}) => {
+      let translation = translations[key]?.[language] || key;
+      for (const placeholder in replacements) {
+          translation = translation.replace(`{${placeholder}}`, replacements[placeholder]);
+      }
+      return translation;
+  }, [language]);
+
   useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
+      localStorage.setItem('transactions', JSON.stringify(transactions));
   }, [transactions]);
+  
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
@@ -770,45 +1107,69 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('fontSize', fontSize);
+    const sizeMap: Record<FontSize, string> = { small: '14px', medium: '16px', large: '18px' };
+    document.documentElement.style.fontSize = sizeMap[fontSize];
+  }, [fontSize]);
+
+
+  useEffect(() => {
     localStorage.setItem('currency', currency);
   }, [currency]);
 
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
+  const locale = useMemo(() => languageToLocaleMap[language], [language]);
+
 
   const addTransaction = useCallback((amount: number, type: 'income' | 'expense', category: string) => {
     const newTransaction: Transaction = {
-      id: new Date().toISOString() + Math.random(),
-      type, amount, date: new Date().toISOString(), category
+        id: Date.now(),
+        type,
+        amount,
+        date: new Date().toISOString(),
+        category,
     };
     setTransactions(prev => [...prev, newTransaction]);
   }, []);
 
-  const { dailyIncome, weeklyIncome, monthlyIncome, dailyExpenses, weeklyExpenses, monthlyExpenses } = useMemo(() => {
+  const { 
+      dailyIncome, weeklyIncome, monthlyIncome, 
+      dailyExpenses, weeklyExpenses, monthlyExpenses,
+      dailyTransactions, weeklyTransactions, monthlyTransactions
+  } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
+    const filteredLists = {
+        dailyTransactions: [] as Transaction[],
+        weeklyTransactions: [] as Transaction[],
+        monthlyTransactions: [] as Transaction[]
+    };
     transactions.forEach(tx => {
       const date = new Date(tx.date);
       if (dateUtils.isToday(date)) {
+        filteredLists.dailyTransactions.push(tx);
         if (tx.type === 'income') totals.dailyIncome += tx.amount; else totals.dailyExpenses += tx.amount;
       }
       if (dateUtils.isThisWeek(date)) {
+        filteredLists.weeklyTransactions.push(tx);
         if (tx.type === 'income') totals.weeklyIncome += tx.amount; else totals.weeklyExpenses += tx.amount;
       }
       if (dateUtils.isThisMonth(date)) {
+        filteredLists.monthlyTransactions.push(tx);
         if (tx.type === 'income') totals.monthlyIncome += tx.amount; else totals.monthlyExpenses += tx.amount;
       }
     });
-    return totals;
+    return {...totals, ...filteredLists};
   }, [transactions]);
 
   const handleNavClick = (page: 'main' | 'income' | 'expense' | 'settings' | 'tax') => setView({ page });
   const handleCardClick = (type: 'income' | 'expense', period: 'daily' | 'weekly' | 'monthly') => setView({ page: 'detail', transactionType: type, period });
-
+  
   const renderPage = () => {
     const { page, period, transactionType } = view;
 
     if (page === 'history') {
       const allTypeTransactions = transactions.filter(tx => tx.type === transactionType);
-      return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} />;
+      return <HistoryPage transactions={allTypeTransactions} type={transactionType!} onBack={() => handleCardClick(transactionType!, 'monthly')} currencySymbol={currencySymbol} t={t} />;
     }
     
     if (page === 'detail') {
@@ -818,9 +1179,9 @@ function App() {
       const onViewHistory = () => setView({ page: 'history', transactionType });
 
       switch (period) {
-        case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} />;
-        case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} />;
-        case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} />;
+        case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+        case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} currencySymbol={currencySymbol} t={t} />;
+        case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType!} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} t={t} />;
         default: setView({ page: 'main' }); return null;
       }
     }
@@ -832,6 +1193,11 @@ function App() {
                  addIncome={(amount, category) => addTransaction(amount, 'income', category)}
                  onCardClick={(period) => handleCardClick('income', period)}
                  currencySymbol={currencySymbol}
+                 dailyTransactions={dailyTransactions}
+                 weeklyTransactions={weeklyTransactions}
+                 monthlyTransactions={monthlyTransactions}
+                 locale={locale}
+                 t={t}
                />;
       case 'expense':
         return <ExpensePage 
@@ -839,11 +1205,16 @@ function App() {
                  addExpense={(amount, category) => addTransaction(amount, 'expense', category)}
                  onCardClick={(period) => handleCardClick('expense', period)}
                  currencySymbol={currencySymbol}
+                 dailyTransactions={dailyTransactions}
+                 weeklyTransactions={weeklyTransactions}
+                 monthlyTransactions={monthlyTransactions}
+                 locale={locale}
+                 t={t}
                />;
       case 'settings':
-        return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} />;
+        return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} t={t} />;
       case 'tax':
-        return <TaxPage transactions={transactions} currencySymbol={currencySymbol} />;
+        return <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t}/>;
       case 'main':
       default:
         let incomeForPeriod = dailyIncome;
@@ -863,15 +1234,18 @@ function App() {
                  currencySymbol={currencySymbol} 
                  currentPeriod={mainViewPeriod}
                  onPeriodChange={setMainViewPeriod}
+                 locale={locale}
+                 t={t}
                />;
     }
   };
 
   return (
     <div className="app-container">
-      <Header />
-      <main>{renderPage()}</main>
-      <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} />
+      <Header t={t} language={language} onLanguageChange={setLanguage} />
+      <main ref={mainRef}>{renderPage()}</main>
+      <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} t={t} />
+      <ScrollToTop mainRef={mainRef} />
     </div>
   );
 }
