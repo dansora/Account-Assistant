@@ -26,7 +26,8 @@ type DbTransaction = {
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
-  company_registration_number: string | null; bank_name: string | null;
+  company_registration_number: string | null; bank_name: string | null; account_holder_name: string | null; account_number: string | null;
+  sort_code: string | null; iban_code: string | null;
 };
 
 type Transaction = {
@@ -80,52 +81,43 @@ const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'i
 };
 
 const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
-    const bankDetailsRaw = dbProfile.bank_name || '';
-    
-    const extractValue = (key: string): string => {
-        const match = bankDetailsRaw.match(new RegExp(`\\[${key}\\](.*?)(?=\\[|$)`));
-        return match ? match[1].trim() : '';
-    };
-
-    const accountHolderName = extractValue('HOLDER');
-    const accountNumber = extractValue('ACC');
-    const sortCode = extractValue('SORT');
-    const iban = extractValue('IBAN');
-
-    const firstMarkerIndex = bankDetailsRaw.indexOf('[');
-    const bankName = (firstMarkerIndex === -1 ? bankDetailsRaw : bankDetailsRaw.substring(0, firstMarkerIndex)).trim();
-    
     return {
-        id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
-        email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
-        businessRegistrationCode: dbProfile.business_registration_code || '', address: dbProfile.address || '', vatRate: dbProfile.vat_rate || 0,
-        companyRegistrationNumber: dbProfile.company_registration_number || '', 
-        bankName: bankName, 
-        accountHolderName: accountHolderName, 
-        accountNumber: accountNumber,
-        sortCode: sortCode, 
-        iban: iban,
+        id: dbProfile.id,
+        updatedAt: dbProfile.updated_at || undefined,
+        fullName: dbProfile.full_name || '',
+        username: dbProfile.username || '',
+        email: authUser.email || '',
+        phone: dbProfile.phone || '',
+        avatar: dbProfile.avatar || '',
+        companyName: dbProfile.company_name || '',
+        businessRegistrationCode: dbProfile.business_registration_code || '',
+        address: dbProfile.address || '',
+        vatRate: dbProfile.vat_rate || 0,
+        companyRegistrationNumber: dbProfile.company_registration_number || '',
+        bankName: dbProfile.bank_name || '',
+        accountHolderName: dbProfile.account_holder_name || '',
+        accountNumber: dbProfile.account_number || '',
+        sortCode: dbProfile.sort_code || '',
+        iban: dbProfile.iban_code || '',
     };
 };
 
 const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => {
-    let combinedBankDetails = appUser.bankName || '';
-    if (appUser.accountHolderName) combinedBankDetails += ` [HOLDER]${appUser.accountHolderName}`;
-    if (appUser.accountNumber) combinedBankDetails += ` [ACC]${appUser.accountNumber}`;
-    if (appUser.sortCode) combinedBankDetails += ` [SORT]${appUser.sortCode}`;
-    if (appUser.iban) combinedBankDetails += ` [IBAN]${appUser.iban}`;
-
     return {
-        full_name: appUser.fullName,
-        username: appUser.username,
-        phone: appUser.phone,
-        avatar: appUser.avatar,
-        company_name: appUser.companyName,
-        business_registration_code: appUser.businessRegistrationCode,
-        address: appUser.address,
-        vat_rate: appUser.vatRate,
-        company_registration_number: appUser.companyRegistrationNumber, 
-        bank_name: combinedBankDetails.trim() || null,
+        full_name: appUser.fullName || null,
+        username: appUser.username || null,
+        phone: appUser.phone || null,
+        avatar: appUser.avatar || null,
+        company_name: appUser.companyName || null,
+        business_registration_code: appUser.businessRegistrationCode || null,
+        address: appUser.address || null,
+        vat_rate: appUser.vatRate || 0,
+        company_registration_number: appUser.companyRegistrationNumber || null,
+        bank_name: appUser.bankName || null,
+        account_holder_name: appUser.accountHolderName || null,
+        account_number: appUser.accountNumber || null,
+        sort_code: appUser.sortCode || null,
+        iban_code: appUser.iban || null,
     };
 };
 
