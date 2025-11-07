@@ -563,6 +563,11 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: { user: User; onUp
     const [formData, setFormData] = useState(user);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setFormData(user);
+    }, [user]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files[0]) { const base64 = await fileToBase64(e.target.files[0]); setFormData({ ...formData, avatar: base64 }); } };
     const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setIsSubmitting(true); await onUpdate(formData); setIsSubmitting(false); };
@@ -722,7 +727,16 @@ function App() {
     });
   };
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setView({ page: 'main' }); };
-  const handleUpdateProfile = async (updatedUser: User) => { const { data, error } = await supabase.from('profiles').update(appUserToDbProfile(updatedUser)).eq('id', updatedUser.id).select().single(); if (error) console.error("Failed to update profile", error); else if (data && session?.user) { setUser(dbProfileToApp(data, session.user)); setView({ page: 'main' }); } };
+  const handleUpdateProfile = async (updatedUser: User) => {
+    const { data, error } = await supabase.from('profiles').update(appUserToDbProfile(updatedUser)).eq('id', updatedUser.id).select().single();
+    if (error) {
+        console.error("Failed to update profile", error);
+        alert(`Failed to update profile: ${error.message}`);
+    } else if (data && session?.user) {
+        setUser(dbProfileToApp(data, session.user));
+        setView({ page: 'main' });
+    }
+  };
   const handleVatChange = (rate: number) => { if (user) handleUpdateProfile({ ...user, vatRate: rate }); };
   
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
