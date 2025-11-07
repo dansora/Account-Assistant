@@ -26,7 +26,7 @@ type DbTransaction = {
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
-  company_registration_number: string | null; bank_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
+  company_registration_number: string | null; bank_name: string | null;
 };
 
 type Transaction = {
@@ -80,15 +80,20 @@ const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'i
 };
 
 const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
-    const holderMarker = '[HOLDER]';
-    let bankName = dbProfile.bank_name || '';
-    let accountHolderName = '';
+    const bankDetailsRaw = dbProfile.bank_name || '';
+    
+    const extractValue = (key: string): string => {
+        const match = bankDetailsRaw.match(new RegExp(`\\[${key}\\](.*?)(?=\\[|$)`));
+        return match ? match[1].trim() : '';
+    };
 
-    if (bankName.includes(holderMarker)) {
-        const parts = bankName.split(holderMarker);
-        bankName = parts[0].trim();
-        accountHolderName = parts[1] || '';
-    }
+    const accountHolderName = extractValue('HOLDER');
+    const accountNumber = extractValue('ACC');
+    const sortCode = extractValue('SORT');
+    const iban = extractValue('IBAN');
+
+    const firstMarkerIndex = bankDetailsRaw.indexOf('[');
+    const bankName = (firstMarkerIndex === -1 ? bankDetailsRaw : bankDetailsRaw.substring(0, firstMarkerIndex)).trim();
     
     return {
         id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
@@ -97,27 +102,30 @@ const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
         companyRegistrationNumber: dbProfile.company_registration_number || '', 
         bankName: bankName, 
         accountHolderName: accountHolderName, 
-        accountNumber: dbProfile.account_number || '',
-        sortCode: dbProfile.sort_code || '', 
-        iban: dbProfile.iban || '',
+        accountNumber: accountNumber,
+        sortCode: sortCode, 
+        iban: iban,
     };
 };
 
 const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => {
-    const holderMarker = '[HOLDER]';
-    let combinedBankName = appUser.bankName;
-    if (appUser.accountHolderName) {
-        combinedBankName = `${appUser.bankName} ${holderMarker}${appUser.accountHolderName}`;
-    }
+    let combinedBankDetails = appUser.bankName || '';
+    if (appUser.accountHolderName) combinedBankDetails += ` [HOLDER]${appUser.accountHolderName}`;
+    if (appUser.accountNumber) combinedBankDetails += ` [ACC]${appUser.accountNumber}`;
+    if (appUser.sortCode) combinedBankDetails += ` [SORT]${appUser.sortCode}`;
+    if (appUser.iban) combinedBankDetails += ` [IBAN]${appUser.iban}`;
 
     return {
-        full_name: appUser.fullName, username: appUser.username, phone: appUser.phone, avatar: appUser.avatar,
-        company_name: appUser.companyName, business_registration_code: appUser.businessRegistrationCode, address: appUser.address, vat_rate: appUser.vatRate,
+        full_name: appUser.fullName,
+        username: appUser.username,
+        phone: appUser.phone,
+        avatar: appUser.avatar,
+        company_name: appUser.companyName,
+        business_registration_code: appUser.businessRegistrationCode,
+        address: appUser.address,
+        vat_rate: appUser.vatRate,
         company_registration_number: appUser.companyRegistrationNumber, 
-        bank_name: combinedBankName.trim() || null, 
-        account_number: appUser.accountNumber,
-        sort_code: appUser.sortCode, 
-        iban: appUser.iban,
+        bank_name: combinedBankDetails.trim() || null,
     };
 };
 
