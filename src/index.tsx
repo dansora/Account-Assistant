@@ -713,15 +713,12 @@ function App() {
   }, [user]);
 
   const handleUpdateTransaction = async (updatedTx: Transaction) => {
-    const updatePayload = {
-        amount: updatedTx.amount,
-        category: updatedTx.category,
-        date: updatedTx.date,
-        client_name: updatedTx.clientName || null,
-        client_email: updatedTx.clientEmail || null,
-        service_description: updatedTx.serviceDescription || null,
-        payment_link: updatedTx.paymentLink || null,
-    };
+    // The appTransactionToDb mapper creates the correct DB structure from an app transaction object.
+    const updatePayload = appTransactionToDb(updatedTx);
+    
+    // RLS policy will enforce user_id matching, so we don't need to send it in the update payload.
+    // The mapper includes it, so we'll remove it.
+    delete (updatePayload as any).user_id;
 
     const { data, error } = await supabase
         .from('transactions')
@@ -732,6 +729,7 @@ function App() {
 
     if (error) {
         console.error('Error updating transaction:', error);
+        alert(`Failed to save transaction: ${error.message}`);
     } else if (data) {
         const newlyUpdatedTx = dbTransactionToApp(data);
         setTransactions(prevTxs =>
