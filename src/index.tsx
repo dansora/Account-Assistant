@@ -21,20 +21,22 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null;
+  client_email: string | null; service_description: string | null; payment_link: string | null;
 };
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
+  company_registration_number: string | null; bank_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
 };
 
 type Transaction = {
   id: number; userId: string; createdAt: string; date: string; type: 'income' | 'expense'; amount: number; category: string;
-  documentType?: 'receipt' | 'invoice'; documentNumber?: string; clientName?: string; clientEmail?: string; serviceDescription?: string;
+  documentType?: 'receipt' | 'invoice'; documentNumber?: string; clientName?: string; clientEmail?: string; serviceDescription?: string; paymentLink?: string;
 };
 type User = {
     id: string; updatedAt?: string; fullName: string; username: string; email: string; phone: string; avatar: string;
     companyName: string; businessRegistrationCode: string; address: string; vatRate: number;
+    companyRegistrationNumber: string; bankName: string; accountNumber: string; sortCode: string; iban: string;
 };
 
 type AppView = { page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile'; period?: 'daily' | 'weekly' | 'monthly'; transactionType?: 'income' | 'expense'; };
@@ -45,21 +47,25 @@ type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 
 const dbTransactionToApp = (dbTx: DbTransaction): Transaction => ({
     id: dbTx.id, userId: dbTx.user_id, createdAt: dbTx.created_at, date: dbTx.date, type: dbTx.type, amount: dbTx.amount, category: dbTx.category,
     documentType: dbTx.document_type || undefined, documentNumber: dbTx.document_number || undefined, clientName: dbTx.client_name || undefined,
-    clientEmail: dbTx.client_email || undefined, serviceDescription: dbTx.service_description || undefined,
+    clientEmail: dbTx.client_email || undefined, serviceDescription: dbTx.service_description || undefined, paymentLink: dbTx.payment_link || undefined,
 });
 const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => ({
     user_id: appTx.userId, date: appTx.date!, type: appTx.type!, amount: appTx.amount!, category: appTx.category!,
     document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
-    client_email: appTx.clientEmail || null, service_description: appTx.serviceDescription || null,
+    client_email: appTx.clientEmail || null, service_description: appTx.serviceDescription || null, payment_link: appTx.paymentLink || null,
 });
 const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => ({
     id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
     email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
     businessRegistrationCode: dbProfile.business_registration_code || '', address: dbProfile.address || '', vatRate: dbProfile.vat_rate || 0,
+    companyRegistrationNumber: dbProfile.company_registration_number || '', bankName: dbProfile.bank_name || '', accountNumber: dbProfile.account_number || '',
+    sortCode: dbProfile.sort_code || '', iban: dbProfile.iban || '',
 });
 const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => ({
     full_name: appUser.fullName, username: appUser.username, phone: appUser.phone, avatar: appUser.avatar,
     company_name: appUser.companyName, business_registration_code: appUser.businessRegistrationCode, address: appUser.address, vat_rate: appUser.vatRate,
+    company_registration_number: appUser.companyRegistrationNumber, bank_name: appUser.bankName, account_number: appUser.accountNumber,
+    sort_code: appUser.sortCode, iban: appUser.iban,
 });
 
 // --- Constants & Utilities ---
@@ -109,6 +115,17 @@ const translations: Record<string, Record<Language, string>> = {
   total: { en: 'Total', ro: 'Total' }, thank_you: { en: 'Thank you for your business!', ro: 'Vă mulțumim!' },
   payment_received: { en: 'Payment received. Thank you!', ro: 'Plata a fost primită. Vă mulțumim!' },
   upload_avatar: { en: 'Upload a new picture', ro: 'Încarcă o poză nouă' },
+  company_reg_number: { en: 'Company Registration Number', ro: 'Număr de Înregistrare Companie' },
+  bank_name: { en: 'Bank Name', ro: 'Numele Băncii' },
+  account_number: { en: 'Account Number', ro: 'Număr Cont' },
+  sort_code: { en: 'Sort Code', ro: 'Sort Code' },
+  iban: { en: 'IBAN', ro: 'IBAN' },
+  payment_link: { en: 'Payment Link', ro: 'Link Plată' },
+  payment_details: { en: 'Payment Details', ro: 'Detalii Plată' },
+  pay_now: { en: 'Pay Now', ro: 'Plătește Acum' },
+  bank_details: { en: 'Bank Details', ro: 'Detalii Bancare' },
+  company_number: { en: 'Company No:', ro: 'Nr. Înreg. Companie:' },
+  vat_number: { en: 'Tax/VAT No:', ro: 'CUI/TVA:' },
 };
 
 const dateUtils = {
@@ -180,7 +197,7 @@ const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categor
     );
 };
 
-const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: { isOpen: boolean; onClose: () => void; onSubmit: (data: { amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string }) => void; title: string; currencySymbol: string; categories?: string[]; t: (key: string) => string; }) => {
+const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: { isOpen: boolean; onClose: () => void; onSubmit: (data: { amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string, paymentLink?: string }) => void; title: string; currencySymbol: string; categories?: string[]; t: (key: string) => string; }) => {
     const [inputValue, setInputValue] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(categories && categories.length > 0 ? categories[0] : 'Other');
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -188,11 +205,12 @@ const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, c
     const [clientName, setClientName] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [serviceDescription, setServiceDescription] = useState('');
-    const resetState = useCallback(() => { setInputValue(''); if (categories && categories.length > 0) setSelectedCategory(categories[0]); setIsCategoryOpen(false); setDocumentType('none'); setClientName(''); setClientEmail(''); setServiceDescription(''); }, [categories]);
+    const [paymentLink, setPaymentLink] = useState('');
+    const resetState = useCallback(() => { setInputValue(''); if (categories && categories.length > 0) setSelectedCategory(categories[0]); setIsCategoryOpen(false); setDocumentType('none'); setClientName(''); setClientEmail(''); setServiceDescription(''); setPaymentLink(''); }, [categories]);
     useEffect(() => { if (isOpen) resetState(); }, [isOpen, resetState]);
     const handleButtonClick = (value: string) => { if (value === '.' && inputValue.includes('.')) return; setInputValue(inputValue + value); };
     const handleClear = () => setInputValue('');
-    const handleEnter = () => { const amount = parseFloat(inputValue); if (!isNaN(amount) && amount > 0) { onSubmit({ amount, category: selectedCategory, documentType: documentType === 'none' ? undefined : documentType, clientName: clientName || undefined, clientEmail: clientEmail || undefined, serviceDescription: serviceDescription || undefined }); resetState(); } };
+    const handleEnter = () => { const amount = parseFloat(inputValue); if (!isNaN(amount) && amount > 0) { onSubmit({ amount, category: selectedCategory, documentType: documentType === 'none' ? undefined : documentType, clientName: clientName || undefined, clientEmail: clientEmail || undefined, serviceDescription: serviceDescription || undefined, paymentLink: paymentLink || undefined }); resetState(); } };
     if (!isOpen) return null;
     const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
     return (
@@ -200,7 +218,7 @@ const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, c
             <div className="modal-header"><h3>{title}</h3><button onClick={onClose} className="close-button">&times;</button></div>
             <div className="category-selector">
                 <button className="category-display-button" onClick={() => setIsCategoryOpen(!isCategoryOpen)}><span>{selectedCategory}</span><span className={`arrow ${isCategoryOpen ? 'up' : 'down'}`}></span></button>
-                {isCategoryOpen && <div className="category-dropdown">{categories?.map(cat => (<button key={cat} onClick={() => { setSelectedCategory(cat); setIsCategoryOpen(false); }}>{cat}</button>))}</div>}
+                {isCategoryOpen && <div className="category-dropdown">{categories?.map(cat => (<button key={cat} className="category-dropdown-item" onClick={() => { setSelectedCategory(cat); setIsCategoryOpen(false); }}>{cat}</button>))}</div>}
             </div>
             <div className="numpad-display">{currencySymbol}{inputValue || '0.00'}</div>
             <div className="numpad-grid">{numpadKeys.map(key => <button key={key} className="numpad-button" onClick={() => handleButtonClick(key)}>{key}</button>)}<button onClick={handleClear} className="numpad-button action">{t('clear')}</button></div>
@@ -214,6 +232,7 @@ const IncomeNumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, c
                 {documentType !== 'none' && (<div className="form-field">
                     <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder={t('client_name')} />
                     <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder={t('client_email')} />
+                    <input type="url" value={paymentLink} onChange={e => setPaymentLink(e.target.value)} placeholder={t('payment_link')} />
                     <textarea value={serviceDescription} onChange={e => setServiceDescription(e.target.value)} placeholder={t('service_description')} rows={2}></textarea>
                 </div>)}
             </div>
@@ -234,12 +253,25 @@ const DocumentViewerModal = ({ transaction, user, currencySymbol, onClose, t }: 
             <div className="doc-viewer-header"><button onClick={onClose} className="close-button">&times;</button></div>
             <div className="doc-viewer-body">
                 <header className="doc-header">
+                    {user.companyName && user.avatar && <img src={user.avatar} alt="Company Logo" className="company-logo" />}
                     <div><h1>{t(transaction.documentType)}</h1><p>#{transaction.documentNumber}</p></div>
                     <div><h2>{user.companyName || user.fullName}</h2><p>{user.address}</p><p>{user.email}</p><p>{user.phone}</p></div>
                 </header>
                 <section className="doc-parties">
-                    <div className="party-from"><strong>{t('from')}:</strong><p>{user.companyName || user.fullName}</p><p>{user.businessRegistrationCode}</p><p>{user.address}</p></div>
-                    <div className="party-to"><strong>{t('to')}:</strong><p>{transaction.clientName}</p><p>{transaction.clientEmail}</p></div>
+                    <div className="party-from">
+                        <strong>{t('from')}:</strong>
+                        <p>{user.companyName || user.fullName}</p>
+                        {user.companyRegistrationNumber && <p>{t('company_number')} {user.companyRegistrationNumber}</p>}
+                        {user.businessRegistrationCode && <p>{t('vat_number')} {user.businessRegistrationCode}</p>}
+                        <p>{user.address}</p>
+                        <p>{user.email}</p>
+                        <p>{user.phone}</p>
+                    </div>
+                    <div className="party-to">
+                        <strong>{t('to')}:</strong>
+                        <p>{transaction.clientName}</p>
+                        <p>{transaction.clientEmail}</p>
+                    </div>
                 </section>
                 <div className="doc-details"><strong>{t('date_issued')}:</strong> {new Date(transaction.date).toLocaleDateString()}</div>
                 <section className="doc-line-items">
@@ -247,11 +279,31 @@ const DocumentViewerModal = ({ transaction, user, currencySymbol, onClose, t }: 
                         <tbody><tr><td>{transaction.serviceDescription}</td><td>{currencySymbol}{totalAmount.toFixed(2)}</td></tr></tbody>
                     </table>
                 </section>
-                {user.vatRate > 0 && (<section className="doc-totals">
-                    <div className="total-row"><span>{t('subtotal')}</span><span>{currencySymbol}{subtotal.toFixed(2)}</span></div>
-                    <div className="total-row"><span>{t('vat')} ({user.vatRate}%)</span><span>{currencySymbol}{vatAmount.toFixed(2)}</span></div>
+                <section className="doc-totals">
+                    {user.vatRate > 0 ? (
+                        <>
+                            <div className="total-row"><span>{t('subtotal')}</span><span>{currencySymbol}{subtotal.toFixed(2)}</span></div>
+                            <div className="total-row"><span>{t('vat')} ({user.vatRate}%)</span><span>{currencySymbol}{vatAmount.toFixed(2)}</span></div>
+                        </>
+                    ) : null}
                     <div className="total-row grand-total"><span>{t('total')}</span><span>{currencySymbol}{totalAmount.toFixed(2)}</span></div>
-                </section>)}
+                </section>
+                {(user.bankName || transaction.paymentLink) && (
+                    <section className="doc-payment-details">
+                        <h4>{t('payment_details')}</h4>
+                        {user.bankName && user.accountNumber && (
+                            <div className="bank-info">
+                                <p><strong>{t('bank_name')}:</strong> {user.bankName}</p>
+                                <p><strong>{t('account_number')}:</strong> {user.accountNumber}</p>
+                                {user.sortCode && <p><strong>{t('sort_code')}:</strong> {user.sortCode}</p>}
+                                {user.iban && <p><strong>{t('iban')}:</strong> {user.iban}</p>}
+                            </div>
+                        )}
+                        {transaction.paymentLink && (
+                           <a href={transaction.paymentLink} target="_blank" rel="noopener noreferrer" className="action-button pay-now-button">{t('pay_now')}</a>
+                        )}
+                    </section>
+                )}
                 <footer className="doc-footer"><p>{transaction.documentType === 'invoice' ? t('thank_you') : t('payment_received')}</p></footer>
             </div>
             <div className="doc-viewer-actions"><button className="action-button" onClick={handlePrint}>{t('print')}</button>{transaction.clientEmail && <button className="action-button" onClick={handleSend}>{t('send')}</button>}</div>
@@ -419,7 +471,7 @@ const Header = ({ t, language, onLanguageChange, user, onNavClick }: { t: (key: 
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const Footer = ({ currentPage, onNavClick, t }: { currentPage: string; onNavClick: (page: string) => void; t: (key: string) => string; }) => {
     const navItems = [{ page: 'main', label: t('home'), icon: <HomeIcon /> }, { page: 'income', label: t('income'), icon: <IncomeIcon /> }, { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> }, { page: 'tax', label: t('tax'), icon: <TaxIcon /> }, { page: 'settings', label: t('settings'), icon: <SettingsIcon /> }, ];
@@ -452,7 +504,13 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: { user: User; onUp
                 <div className="form-field"><label htmlFor="phone">{t('phone_number')}</label><input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="companyName">{t('company_name')}</label><input id="companyName" name="companyName" type="text" value={formData.companyName} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="businessRegistrationCode">{t('business_reg_code')}</label><input id="businessRegistrationCode" name="businessRegistrationCode" type="text" value={formData.businessRegistrationCode} onChange={handleChange} /></div>
+                <div className="form-field"><label htmlFor="companyRegistrationNumber">{t('company_reg_number')}</label><input id="companyRegistrationNumber" name="companyRegistrationNumber" type="text" value={formData.companyRegistrationNumber} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="address">{t('address')}</label><textarea id="address" name="address" value={formData.address} onChange={handleChange} rows={3}></textarea></div>
+                <h3 className="profile-form-section-header">{t('bank_details')}</h3>
+                <div className="form-field"><label htmlFor="bankName">{t('bank_name')}</label><input id="bankName" name="bankName" type="text" value={formData.bankName} onChange={handleChange} /></div>
+                <div className="form-field"><label htmlFor="accountNumber">{t('account_number')}</label><input id="accountNumber" name="accountNumber" type="text" value={formData.accountNumber} onChange={handleChange} /></div>
+                <div className="form-field"><label htmlFor="sortCode">{t('sort_code')}</label><input id="sortCode" name="sortCode" type="text" value={formData.sortCode} onChange={handleChange} /></div>
+                <div className="form-field"><label htmlFor="iban">{t('iban')}</label><input id="iban" name="iban" type="text" value={formData.iban} onChange={handleChange} /></div>
                 <button type="submit" className="action-button" disabled={isSubmitting}>{isSubmitting ? <div className="button-spinner"></div> : t('update_profile')}</button>
             </form>
             <button onClick={onLogout} className="action-button expense">{t('logout')}</button>
@@ -591,10 +649,10 @@ function App() {
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  const addTransaction = useCallback(async (data: { type: 'income' | 'expense', amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string }) => {
+  const addTransaction = useCallback(async (data: { type: 'income' | 'expense', amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string, paymentLink?: string }) => {
     if (!user) return;
     const prefix = data.documentType === 'invoice' ? 'FACT-' : 'CHIT-';
-    const newTx: Partial<Transaction> = { userId: user.id, type: data.type, amount: data.amount, category: data.category, date: new Date().toISOString(), documentType: data.documentType, clientName: data.clientName, clientEmail: data.clientEmail, serviceDescription: data.serviceDescription, documentNumber: data.documentType ? `${prefix}${Date.now()}` : undefined };
+    const newTx: Partial<Transaction> = { userId: user.id, type: data.type, amount: data.amount, category: data.category, date: new Date().toISOString(), documentType: data.documentType, clientName: data.clientName, clientEmail: data.clientEmail, serviceDescription: data.serviceDescription, paymentLink: data.paymentLink, documentNumber: data.documentType ? `${prefix}${Date.now()}` : undefined };
     const { data: inserted, error } = await supabase.from('transactions').insert(appTransactionToDb(newTx)).select().single();
     if (error) console.error('Error adding transaction:', error);
     else if (inserted) setTransactions(prev => [dbTransactionToApp(inserted), ...prev]);

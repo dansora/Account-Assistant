@@ -313,6 +313,15 @@ main {
     object-fit: cover;
     border: 3px solid var(--primary-blue-light);
 }
+.profile-form-section-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-blue-dark);
+    margin-top: 25px;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color);
+}
 #email:disabled {
     background-color: #eee;
     cursor: not-allowed;
@@ -547,6 +556,11 @@ body.dark-theme .numpad-button.action { background-color: #2a2a2a; }
     flex-direction: column;
     gap: 15px;
 }
+.modal-content .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 .doc-type-selector {
     display: flex;
     border: 1px solid var(--border-color);
@@ -726,10 +740,12 @@ body.dark-theme .category-percentage { color: #bbb; }
 .modal-content.doc-viewer-modal-content { max-width: 800px; width: 95%; font-size: 14px; }
 .doc-viewer-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
 .doc-viewer-body { padding: 20px 0; }
-.doc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; gap: 20px; }
+.doc-header .company-logo { max-width: 100px; max-height: 100px; object-fit: contain; border-radius: 8px; }
+.doc-header > div:last-child { text-align: right; }
 .doc-header h1 { font-size: 1.8rem; color: var(--primary-blue-dark); margin: 0; }
 .doc-header h2 { font-size: 1.2rem; color: #555; margin: 0; }
-.doc-parties { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 20px; }
+.doc-parties { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 20px; line-height: 1.5; }
 .party-from, .party-to { flex: 1; }
 .party-from p, .party-to p { margin: 2px 0; }
 .doc-details { text-align: right; margin-bottom: 20px; }
@@ -741,6 +757,11 @@ body.dark-theme .doc-line-items th { background-color: #2a2a2a; }
 .doc-totals { margin-top: 20px; margin-left: auto; max-width: 250px; }
 .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
 .total-row.grand-total { font-weight: bold; font-size: 1.2em; border-top: 2px solid var(--text-dark); margin-top: 10px; padding-top: 10px; }
+.doc-payment-details { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+.doc-payment-details h4 { margin-bottom: 15px; font-size: 1.1rem; }
+.bank-info { margin-bottom: 20px; line-height: 1.6; }
+.bank-info p { margin: 0; }
+.pay-now-button { display: inline-block; width: auto; padding: 10px 20px; margin: 0; text-decoration: none; text-align: center; }
 .doc-footer { text-align: center; margin-top: 30px; color: #777; font-style: italic; }
 .doc-viewer-actions { display: flex; gap: 15px; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
 .doc-viewer-actions .action-button { margin-bottom: 0; }
@@ -750,7 +771,7 @@ body.dark-theme .doc-line-items th { background-color: #2a2a2a; }
   .modal-overlay, .doc-viewer-modal-content, .doc-viewer-body, .doc-viewer-body * { visibility: visible; }
   .modal-overlay { position: absolute; left: 0; top: 0; background: none; }
   .modal-content.doc-viewer-modal-content { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
-  .doc-viewer-header, .doc-viewer-actions, .close-button { display: none; }
+  .doc-viewer-header, .doc-viewer-actions, .close-button, .pay-now-button { display: none; }
 }
 
 /* Scroll to Top Button */
