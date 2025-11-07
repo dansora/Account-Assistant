@@ -713,12 +713,21 @@ function App() {
   }, [user]);
 
   const handleUpdateTransaction = async (updatedTx: Transaction) => {
-    // The appTransactionToDb mapper creates the correct DB structure from an app transaction object.
-    const updatePayload = appTransactionToDb(updatedTx);
-    
-    // RLS policy will enforce user_id matching, so we don't need to send it in the update payload.
-    // The mapper includes it, so we'll remove it.
-    delete (updatePayload as any).user_id;
+    // Manually construct the payload to ensure all fields from the form are explicitly
+    // mapped and to avoid bugs from the generic data mapper. This is a robust fix
+    // for the persistent issue where invoice edits were not being saved correctly.
+    const updatePayload = {
+      amount: updatedTx.amount,
+      category: updatedTx.category,
+      date: updatedTx.date,
+      client_name: updatedTx.clientName || null,
+      client_email: updatedTx.clientEmail || null,
+      service_description: updatedTx.serviceDescription || null,
+      payment_link: updatedTx.paymentLink || null,
+      // Preserve fields that are not on the form but are part of the transaction object.
+      document_type: updatedTx.documentType || null,
+      document_number: updatedTx.documentNumber || null,
+    };
 
     const { data, error } = await supabase
         .from('transactions')
