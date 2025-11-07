@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null;
+  client_email: string | null; service_description: string | null; attachment_url: string | null; attachment_bucket: string | null;
 };
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
@@ -33,6 +33,7 @@ type DbProfile = {
 type Transaction = {
   id: number; userId: string; createdAt: string; date: string; type: 'income' | 'expense'; amount: number; category: string;
   documentType?: 'receipt' | 'invoice'; documentNumber?: string; clientName?: string; clientEmail?: string; serviceDescription?: string; paymentLink?: string;
+  attachmentUrl?: string; attachmentBucket?: 'receipts' | 'invoices';
 };
 type User = {
     id: string; updatedAt?: string; fullName: string; username: string; email: string; phone: string; avatar: string;
@@ -62,6 +63,8 @@ const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
         clientEmail: dbTx.client_email || undefined,
         serviceDescription: serviceDescription,
         paymentLink: paymentLink,
+        attachmentUrl: dbTx.attachment_url || undefined,
+        attachmentBucket: dbTx.attachment_bucket as ('receipts' | 'invoices' | undefined),
     };
 };
 
@@ -77,6 +80,8 @@ const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'i
         document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
         client_email: appTx.clientEmail || null,
         service_description: serviceDescription.trim() || null,
+        attachment_url: appTx.attachmentUrl || null,
+        attachment_bucket: appTx.attachmentBucket || null,
     };
 };
 
@@ -188,6 +193,12 @@ const translations: Record<string, Record<Language, string>> = {
   category: { en: 'Category', ro: 'Categorie' },
   date: { en: 'Date', ro: 'Data' },
   document_details: { en: 'Document Details', ro: 'Detalii Document' },
+  description: { en: 'Description', ro: 'Descriere' },
+  take_photo: { en: 'Take Photo', ro: 'Fotografiază Chitanța' },
+  upload_document: { en: 'Upload Document', ro: 'Încarcă Document' },
+  capture: { en: 'Capture', ro: 'Capturează' },
+  cancel: { en: 'Cancel', ro: 'Anulează' },
+  remove: { en: 'Remove', ro: 'Elimină' },
 };
 
 const dateUtils = {
@@ -235,27 +246,172 @@ const CalendarModal = ({ isOpen, onClose, onSelectDate }: { isOpen: boolean; onC
     );
 };
 
-const NumpadModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: { isOpen: boolean; onClose: () => void; onSubmit: (amount: number, category: string) => void; title: string; currencySymbol: string; categories?: string[]; t: (key: string) => string; }) => {
-    const [inputValue, setInputValue] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(categories && categories.length > 0 ? categories[0] : 'other');
-    const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-    useEffect(() => { if (isOpen) { if (categories && categories.length > 0) setSelectedCategory(categories[0]); setInputValue(''); setIsCategoryOpen(false); } }, [isOpen, categories]);
-    const handleButtonClick = (value: string) => { if (value === '.' && inputValue.includes('.')) return; setInputValue(inputValue + value); };
-    const handleClear = () => setInputValue('');
-    const handleEnter = () => { const amount = parseFloat(inputValue); if (!isNaN(amount) && amount > 0) { onSubmit(amount, selectedCategory); setInputValue(''); } };
+const CameraModal = ({ isOpen, onClose, onCapture, t }: { isOpen: boolean; onClose: () => void; onCapture: (file: File) => void; t: (key: string) => string; }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+
+    useEffect(() => {
+        const openCamera = async () => {
+            if (isOpen) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    streamRef.current = stream;
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera: ", err);
+                    alert("Could not access camera. Please ensure permissions are granted.");
+                    onClose();
+                }
+            } else {
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(track => track.stop());
+                    streamRef.current = null;
+                }
+            }
+        };
+        openCamera();
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [isOpen, onClose]);
+
+    const handleCapture = () => {
+        if (videoRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const context = canvas.getContext('2d');
+            context?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+                if (blob) {
+                    const file = new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    onCapture(file);
+                }
+            }, 'image/jpeg', 0.9);
+        }
+    };
+
     if (!isOpen) return null;
-    const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
+
     return (
-        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true"><div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><h3>{title || t('add_entry')}</h3><button onClick={onClose} className="close-button" aria-label="Close modal">&times;</button></div>
-            {categories && categories.length > 0 && (<div className="category-selector">
-                <button className="category-display-button" onClick={() => setIsCategoryOpen(!isCategoryOpen)} aria-haspopup="true" aria-expanded={isCategoryOpen}><span>{selectedCategory}</span><span className={`arrow ${isCategoryOpen ? 'up' : 'down'}`}></span></button>
-                {isCategoryOpen && (<div className="category-dropdown">{categories.map(cat => (<button key={cat} className="category-dropdown-item" onClick={() => { setSelectedCategory(cat); setIsCategoryOpen(false); }}>{cat}</button>))}</div>)}
-            </div>)}
-            <div className="numpad-display" aria-live="polite">{currencySymbol}{inputValue || '0.00'}</div>
-            <div className="numpad-grid">{numpadKeys.map(key => <button key={key} onClick={() => handleButtonClick(key)} className="numpad-button">{key}</button>)}<button onClick={handleClear} className="numpad-button action">{t('clear')}</button></div>
-            <button onClick={handleEnter} className="numpad-enter-button">{t('enter')}</button>
-        </div></div>
+        <div className="camera-modal-overlay">
+            <div className="camera-modal-content">
+                <video ref={videoRef} autoPlay playsInline muted />
+                <div className="camera-controls">
+                    <button onClick={handleCapture} className="capture-button">{t('capture')}</button>
+                    <button onClick={onClose} className="cancel-button">{t('cancel')}</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ExpenseModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: { isOpen: boolean; onClose: () => void; onSubmit: (data: { amount: number, category: string, description?: string, file?: File, bucket?: 'receipts' | 'invoices' }) => void; title: string; currencySymbol: string; categories?: string[]; t: (key: string) => string; }) => {
+    const [amount, setAmount] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState(categories && categories.length > 0 ? categories[0] : 'Other');
+    const [description, setDescription] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+    const [filePreview, setFilePreview] = useState<string | null>(null);
+    const [attachmentBucket, setAttachmentBucket] = useState<'receipts' | 'invoices' | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const resetState = useCallback(() => {
+        setAmount('');
+        setSelectedCategory(categories && categories.length > 0 ? categories[0] : 'Other');
+        setDescription('');
+        setFile(null);
+        setFilePreview(null);
+        setAttachmentBucket(null);
+    }, [categories]);
+
+    useEffect(() => {
+        if (isOpen) resetState();
+    }, [isOpen, resetState]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setAttachmentBucket('invoices');
+            if (selectedFile.type.startsWith('image/')) {
+                fileToBase64(selectedFile).then(setFilePreview);
+            } else {
+                setFilePreview(selectedFile.name);
+            }
+        }
+    };
+    
+    const handlePhotoCapture = (capturedFile: File) => {
+        setFile(capturedFile);
+        setAttachmentBucket('receipts');
+        fileToBase64(capturedFile).then(setFilePreview);
+        setIsCameraOpen(false);
+    };
+
+    const removeFile = () => {
+        setFile(null);
+        setFilePreview(null);
+        setAttachmentBucket(null);
+        if(fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleSubmit = () => {
+        const numericAmount = parseFloat(amount);
+        if (!isNaN(numericAmount) && numericAmount > 0) {
+            onSubmit({
+                amount: numericAmount,
+                category: selectedCategory,
+                description: description || undefined,
+                file: file || undefined,
+                bucket: attachmentBucket || undefined,
+            });
+            onClose();
+        }
+    };
+    
+    if (!isOpen) return null;
+
+    return (
+        <>
+            <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-header"><h3>{title}</h3><button onClick={onClose} className="close-button">&times;</button></div>
+                    <form className="edit-transaction-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+                        <div className="form-field"><label htmlFor="exp-amount">{t('amount')}</label><input id="exp-amount" name="amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required placeholder={`${currencySymbol}0.00`} /></div>
+                        <div className="form-field"><label htmlFor="exp-category">{t('category')}</label><select id="exp-category" name="category" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>{categories?.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                        <div className="form-field"><label htmlFor="exp-description">{t('description')}</label><textarea id="exp-description" name="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="e.g., Office supplies"></textarea></div>
+                        <div className="file-input-buttons">
+                            <button type="button" onClick={() => setIsCameraOpen(true)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.4 11.4 8 13.54V16h4.46l2.14-2.14-1.06-1.06-1.06 1.06L11.4 12.8l-1.06-1.06-1.06 1.06.12-.12zM20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5L14.5 15l-3-3-1.5 1.5-3-3L8.5 9H7v8h10V9h-1.5l-1.5 1.5z"/></svg>
+                                {t('take_photo')}
+                            </button>
+                            <button type="button" onClick={() => fileInputRef.current?.click()}>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                                {t('upload_document')}
+                            </button>
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" style={{ display: 'none' }} />
+                        </div>
+                        {filePreview && (
+                            <div className="file-preview">
+                                {file?.type.startsWith('image/') ? (
+                                    <img src={filePreview} alt="Preview" />
+                                ) : (
+                                    <span className="file-name">{filePreview}</span>
+                                )}
+                                <button type="button" className="remove-file-button" onClick={removeFile}>&times;</button>
+                            </div>
+                        )}
+                        <button type="submit" className="action-button expense" style={{ marginTop: '20px' }}>{t('add_expense')}</button>
+                    </form>
+                </div>
+            </div>
+            <CameraModal isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handlePhotoCapture} t={t} />
+        </>
     );
 };
 
@@ -412,6 +568,7 @@ const EditTransactionModal = ({ isOpen, onClose, onSubmit, transaction, t }: { i
 };
 
 const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/></svg>;
+const AttachmentIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>;
 const DetailHeader = ({ title, onBack, t }: { title: string; onBack: () => void; t: (key: string) => string}) => (<div className="detail-header"><button onClick={onBack} className="back-button">&larr; {t('back')}</button><h2>{title}</h2></div>);
 const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: string; onDocClick: (tx: Transaction) => void; onEditClick: (tx: Transaction) => void; t: (key: string) => string; }> = ({ transaction, currencySymbol, onDocClick, onEditClick, t }) => (
     <li className="transaction-item">
@@ -420,6 +577,11 @@ const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: 
             <div className="transaction-meta">
                 <span className="transaction-category">{transaction.category}</span>
                 {transaction.documentType && <button onClick={() => onDocClick(transaction)} className="document-badge">{t(transaction.documentType)} #{transaction.documentNumber}</button>}
+                {transaction.attachmentUrl && (
+                    <a href={transaction.attachmentUrl} target="_blank" rel="noopener noreferrer" className="attachment-link" aria-label="View Attachment">
+                        <AttachmentIcon />
+                    </a>
+                )}
             </div>
         </div>
         <div className="transaction-right-panel">
@@ -487,8 +649,8 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
         </div>
     );
 };
-const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: { expenses: number; weeklyExpenses: number; monthlyExpenses: number; addExpense: (amount: number, category: string) => void; onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void; currencySymbol: string; dailyTransactions: Transaction[]; weeklyTransactions: Transaction[]; monthlyTransactions: Transaction[]; locale: string; t: (key: string, replacements?: Record<string, string>) => string; }) => {
-    const [isModalOpen, setIsModalOpen] = useState(false); const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily'); const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other']; const handleAddExpense = (amount: number, category: string) => { addExpense(amount, category); setIsModalOpen(false); }; const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions; const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
+const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: { expenses: number; weeklyExpenses: number; monthlyExpenses: number; addExpense: (data: any) => void; onCardClick: (period: 'daily' | 'weekly' | 'monthly') => void; currencySymbol: string; dailyTransactions: Transaction[]; weeklyTransactions: Transaction[]; monthlyTransactions: Transaction[]; locale: string; t: (key: string, replacements?: Record<string, string>) => string; }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false); const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily'); const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other']; const handleAddExpense = (data: any) => { addExpense(data); }; const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions; const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
     return (
       <div className="page-content">
         <CurrentDateTime locale={locale} /><h2>{t('expense')}</h2><button className="action-button expense" onClick={() => setIsModalOpen(true)}>{t('add_expense')}</button>
@@ -499,7 +661,7 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
         </div>
         <CategoryBreakdown title={t('expense_breakdown', { period: t(period) })} transactions={currentTransactions} totalAmount={currentTotal} currencySymbol={currencySymbol} type="expense" t={t} />
         <div className="period-selector"><button onClick={() => setPeriod('daily')} className={period === 'daily' ? 'active' : ''}>{t('daily')}</button><button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button><button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button></div>
-        <NumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddExpense} title={t('add_expense')} currencySymbol={currencySymbol} categories={expenseCategories} t={t} />
+        <ExpenseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddExpense} title={t('add_expense')} currencySymbol={currencySymbol} categories={expenseCategories} t={t} />
       </div>
     );
 };
@@ -771,10 +933,48 @@ function App() {
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  const addTransaction = useCallback(async (data: { type: 'income' | 'expense', amount: number, category: string, documentType?: 'receipt' | 'invoice', clientName?: string, clientEmail?: string, serviceDescription?: string, paymentLink?: string }) => {
+  // FIX: Updated the type definition for the 'data' parameter.
+  // - Renamed 'attachmentBucket' to 'bucket' to match the property being passed from modals.
+  // - Added an optional 'description' property to handle descriptions from the ExpenseModal.
+  const addTransaction = useCallback(async (data: {
+    type: 'income' | 'expense',
+    amount: number,
+    category: string,
+    documentType?: 'receipt' | 'invoice',
+    clientName?: string,
+    clientEmail?: string,
+    serviceDescription?: string,
+    paymentLink?: string,
+    attachmentUrl?: string,
+    bucket?: 'receipts' | 'invoices',
+    file?: File,
+    description?: string,
+  }) => {
     if (!user) return;
-    const prefix = data.documentType === 'invoice' ? 'FACT-' : 'CHIT-';
-    const newTx: Partial<Transaction> = { userId: user.id, type: data.type, amount: data.amount, category: data.category, date: new Date().toISOString(), documentType: data.documentType, clientName: data.clientName, clientEmail: data.clientEmail, serviceDescription: data.serviceDescription, paymentLink: data.paymentLink, documentNumber: data.documentType ? `${prefix}${Date.now()}` : undefined };
+
+    let attachmentUrl = data.attachmentUrl;
+    if (data.file && data.bucket) {
+        const filePath = `${user.id}/${Date.now()}_${data.file.name}`;
+        const { error: uploadError } = await supabase.storage.from(data.bucket).upload(filePath, data.file);
+        if (uploadError) {
+            console.error('Error uploading file:', uploadError);
+            alert(`Failed to upload file: ${uploadError.message}`);
+            return;
+        }
+        const { data: urlData } = supabase.storage.from(data.bucket).getPublicUrl(filePath);
+        attachmentUrl = urlData.publicUrl;
+    }
+
+    const prefix = data.documentType === 'invoice' ? 'FACT-' : data.documentType === 'receipt' ? 'CHIT-' : '';
+    const newTx: Partial<Transaction> = {
+        userId: user.id, type: data.type, amount: data.amount, category: data.category, date: new Date().toISOString(),
+        documentType: data.documentType, clientName: data.clientName, clientEmail: data.clientEmail,
+        // FIX: Coalesce 'serviceDescription' and 'description' to ensure expense descriptions are saved.
+        serviceDescription: data.serviceDescription || data.description,
+        paymentLink: data.paymentLink,
+        documentNumber: data.documentType ? `${prefix}${Date.now()}` : undefined,
+        attachmentUrl: attachmentUrl, attachmentBucket: data.bucket,
+    };
     const { data: inserted, error } = await supabase.from('transactions').insert(appTransactionToDb(newTx)).select().single();
     if (error) console.error('Error adding transaction:', error);
     else if (inserted) setTransactions(prev => [dbTransactionToApp(inserted), ...prev]);
@@ -835,7 +1035,7 @@ function App() {
     }
     switch (page) {
         case 'income': return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={(data) => addTransaction({ ...data, type: 'income' })} onCardClick={(p) => handleCardClick('income', p)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
-        case 'expense': return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(amount, category) => addTransaction({ type: 'expense', amount, category })} onCardClick={(p) => handleCardClick('expense', p)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
+        case 'expense': return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(data) => addTransaction({ ...data, type: 'expense' })} onCardClick={(p) => handleCardClick('expense', p)} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
         case 'settings': return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} vatRate={user.vatRate} onVatChange={handleVatChange} t={t} />;
         case 'tax': return <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t} />;
         case 'profile': return <ProfilePage user={user} onUpdate={handleUpdateProfile} onLogout={handleLogout} onBack={() => setView({ page: 'main' })} t={t} />;

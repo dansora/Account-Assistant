@@ -450,7 +450,7 @@ body.dark-theme .action-button:disabled {
     padding: 20px;
     border-radius: 12px;
     width: 90%;
-    max-width: 340px;
+    max-width: 400px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
     max-height: 90vh;
     overflow-y: auto;
@@ -576,6 +576,124 @@ body.dark-theme .numpad-button.action { background-color: #2a2a2a; }
 .doc-type-selector button.active { background-color: var(--primary-blue-dark); color: var(--text-light); }
 
 
+/* Expense Modal specific styles */
+.file-input-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.file-input-buttons button {
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 8px;
+    border: 1px solid var(--primary-blue-dark);
+    background-color: transparent;
+    color: var(--primary-blue-dark);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.file-input-buttons button svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.file-preview {
+    margin-top: 15px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.file-preview img {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 4px;
+}
+
+.file-preview .file-name {
+    font-size: 0.9rem;
+    font-style: italic;
+    color: #555;
+    word-break: break-all;
+}
+body.dark-theme .file-preview .file-name {
+    color: #bbb;
+}
+
+.file-preview .remove-file-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+}
+
+/* Camera Modal */
+.camera-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+}
+
+.camera-modal-content {
+    position: relative;
+    width: 90%;
+    max-width: 600px;
+}
+
+.camera-modal-content video {
+    width: 100%;
+    border-radius: 12px;
+}
+
+.camera-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+.camera-controls button {
+    padding: 15px 30px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+}
+.camera-controls .capture-button {
+    background-color: var(--expenses-color);
+    color: var(--text-light);
+}
+.camera-controls .cancel-button {
+    background-color: #555;
+    color: var(--text-light);
+}
+
 /* Footer Navigation */
 .app-footer {
   height: var(--footer-height);
@@ -621,6 +739,23 @@ body.dark-theme .back-button:hover { background-color: #333; border-color: #777;
     border-radius: 12px; border: none; cursor: pointer;
 }
 body.dark-theme .document-badge { background-color: var(--primary-blue-dark); color: var(--text-light); }
+.attachment-link {
+    display: flex;
+    align-items: center;
+    color: #555;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+body.dark-theme .attachment-link {
+    color: #bbb;
+}
+.attachment-link svg {
+    width: 18px;
+    height: 18px;
+}
+
 .transaction-date, .history-item span:first-child { color: #555; font-size: 0.9rem; }
 body.dark-theme .transaction-date, body.dark-theme .history-item span:first-child { color: #aaa; }
 .transaction-category {
