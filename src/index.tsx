@@ -26,7 +26,7 @@ type DbTransaction = {
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
-  company_registration_number: string | null; bank_name: string | null; account_holder_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
+  company_registration_number: string | null; bank_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
 };
 
 type Transaction = {
@@ -79,19 +79,47 @@ const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'i
     };
 };
 
-const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => ({
-    id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
-    email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
-    businessRegistrationCode: dbProfile.business_registration_code || '', address: dbProfile.address || '', vatRate: dbProfile.vat_rate || 0,
-    companyRegistrationNumber: dbProfile.company_registration_number || '', bankName: dbProfile.bank_name || '', accountHolderName: dbProfile.account_holder_name || '', accountNumber: dbProfile.account_number || '',
-    sortCode: dbProfile.sort_code || '', iban: dbProfile.iban || '',
-});
-const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => ({
-    full_name: appUser.fullName, username: appUser.username, phone: appUser.phone, avatar: appUser.avatar,
-    company_name: appUser.companyName, business_registration_code: appUser.businessRegistrationCode, address: appUser.address, vat_rate: appUser.vatRate,
-    company_registration_number: appUser.companyRegistrationNumber, bank_name: appUser.bankName, account_holder_name: appUser.accountHolderName, account_number: appUser.accountNumber,
-    sort_code: appUser.sortCode, iban: appUser.iban,
-});
+const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
+    const holderMarker = '[HOLDER]';
+    let bankName = dbProfile.bank_name || '';
+    let accountHolderName = '';
+
+    if (bankName.includes(holderMarker)) {
+        const parts = bankName.split(holderMarker);
+        bankName = parts[0].trim();
+        accountHolderName = parts[1] || '';
+    }
+    
+    return {
+        id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
+        email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
+        businessRegistrationCode: dbProfile.business_registration_code || '', address: dbProfile.address || '', vatRate: dbProfile.vat_rate || 0,
+        companyRegistrationNumber: dbProfile.company_registration_number || '', 
+        bankName: bankName, 
+        accountHolderName: accountHolderName, 
+        accountNumber: dbProfile.account_number || '',
+        sortCode: dbProfile.sort_code || '', 
+        iban: dbProfile.iban || '',
+    };
+};
+
+const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => {
+    const holderMarker = '[HOLDER]';
+    let combinedBankName = appUser.bankName;
+    if (appUser.accountHolderName) {
+        combinedBankName = `${appUser.bankName} ${holderMarker}${appUser.accountHolderName}`;
+    }
+
+    return {
+        full_name: appUser.fullName, username: appUser.username, phone: appUser.phone, avatar: appUser.avatar,
+        company_name: appUser.companyName, business_registration_code: appUser.businessRegistrationCode, address: appUser.address, vat_rate: appUser.vatRate,
+        company_registration_number: appUser.companyRegistrationNumber, 
+        bank_name: combinedBankName.trim() || null, 
+        account_number: appUser.accountNumber,
+        sort_code: appUser.sortCode, 
+        iban: appUser.iban,
+    };
+};
 
 // --- Constants & Utilities ---
 const currencyMap: Record<Currency, string> = { 'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹', };
