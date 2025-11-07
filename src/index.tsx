@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null; payment_url: string | null;
+  client_email: string | null; service_description: string | null;
 };
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
@@ -44,16 +44,41 @@ type Theme = 'light' | 'dark' | 'auto'; type FontSize = 'small' | 'medium' | 'la
 type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
 
 // --- Data Mapping ---
-const dbTransactionToApp = (dbTx: DbTransaction): Transaction => ({
-    id: dbTx.id, userId: dbTx.user_id, createdAt: dbTx.created_at, date: dbTx.date, type: dbTx.type, amount: dbTx.amount, category: dbTx.category,
-    documentType: dbTx.document_type || undefined, documentNumber: dbTx.document_number || undefined, clientName: dbTx.client_name || undefined,
-    clientEmail: dbTx.client_email || undefined, serviceDescription: dbTx.service_description || undefined, paymentLink: dbTx.payment_url || undefined,
-});
-const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => ({
-    user_id: appTx.userId, date: appTx.date!, type: appTx.type!, amount: appTx.amount!, category: appTx.category!,
-    document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
-    client_email: appTx.clientEmail || null, service_description: appTx.serviceDescription || null, payment_url: appTx.paymentLink || null,
-});
+const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
+    const paymentLinkMarker = '[PAYMENT_LINK]';
+    let serviceDescription = dbTx.service_description || undefined;
+    let paymentLink: string | undefined;
+
+    if (serviceDescription && serviceDescription.includes(paymentLinkMarker)) {
+        const parts = serviceDescription.split(paymentLinkMarker);
+        serviceDescription = parts[0].trim() || undefined; // get the description part
+        paymentLink = parts[1] || undefined; // get the URL part
+    }
+
+    return {
+        id: dbTx.id, userId: dbTx.user_id, createdAt: dbTx.created_at, date: dbTx.date, type: dbTx.type, amount: dbTx.amount, category: dbTx.category,
+        documentType: dbTx.document_type || undefined, documentNumber: dbTx.document_number || undefined, clientName: dbTx.client_name || undefined,
+        clientEmail: dbTx.client_email || undefined,
+        serviceDescription: serviceDescription,
+        paymentLink: paymentLink,
+    };
+};
+
+const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => {
+    const paymentLinkMarker = '[PAYMENT_LINK]';
+    let serviceDescription = appTx.serviceDescription || '';
+    if (appTx.paymentLink) {
+        serviceDescription = `${serviceDescription} ${paymentLinkMarker}${appTx.paymentLink}`;
+    }
+
+    return {
+        user_id: appTx.userId, date: appTx.date!, type: appTx.type!, amount: appTx.amount!, category: appTx.category!,
+        document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
+        client_email: appTx.clientEmail || null,
+        service_description: serviceDescription.trim() || null,
+    };
+};
+
 const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => ({
     id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
     email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
