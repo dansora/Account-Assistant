@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null; payment_link: string | null;
+  client_email: string | null; service_description: string | null; payment_url: string | null;
 };
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
@@ -47,12 +47,12 @@ type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 
 const dbTransactionToApp = (dbTx: DbTransaction): Transaction => ({
     id: dbTx.id, userId: dbTx.user_id, createdAt: dbTx.created_at, date: dbTx.date, type: dbTx.type, amount: dbTx.amount, category: dbTx.category,
     documentType: dbTx.document_type || undefined, documentNumber: dbTx.document_number || undefined, clientName: dbTx.client_name || undefined,
-    clientEmail: dbTx.client_email || undefined, serviceDescription: dbTx.service_description || undefined, paymentLink: dbTx.payment_link || undefined,
+    clientEmail: dbTx.client_email || undefined, serviceDescription: dbTx.service_description || undefined, paymentLink: dbTx.payment_url || undefined,
 });
 const appTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => ({
     user_id: appTx.userId, date: appTx.date!, type: appTx.type!, amount: appTx.amount!, category: appTx.category!,
     document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
-    client_email: appTx.clientEmail || null, service_description: appTx.serviceDescription || null, payment_link: appTx.paymentLink || null,
+    client_email: appTx.clientEmail || null, service_description: appTx.serviceDescription || null, payment_url: appTx.paymentLink || null,
 });
 const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => ({
     id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
@@ -523,7 +523,7 @@ const Header = ({ t, language, onLanguageChange, user, onNavClick }: { t: (key: 
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const Footer = ({ currentPage, onNavClick, t }: { currentPage: string; onNavClick: (page: string) => void; t: (key: string) => string; }) => {
     const navItems = [{ page: 'main', label: t('home'), icon: <HomeIcon /> }, { page: 'income', label: t('income'), icon: <IncomeIcon /> }, { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> }, { page: 'tax', label: t('tax'), icon: <TaxIcon /> }, { page: 'settings', label: t('settings'), icon: <SettingsIcon /> }, ];
@@ -713,12 +713,7 @@ function App() {
   }, [user]);
 
   const handleUpdateTransaction = async (updatedTx: Transaction) => {
-    // Re-use the central `appTransactionToDb` data mapper for consistency. This ensures
-    // that the data structure sent to the database is always correct and matches the
-    // structure used when creating new transactions, resolving the schema error.
     const dbPayload = appTransactionToDb(updatedTx);
-    
-    // The user_id should not be part of an update payload. We remove it here.
     delete (dbPayload as { user_id?: string }).user_id;
 
     const { data, error } = await supabase
