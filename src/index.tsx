@@ -91,9 +91,9 @@ const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
         avatar: dbProfile.avatar || '',
         companyName: dbProfile.company_name || '',
         businessRegistrationCode: dbProfile.business_registration_code || '',
+        companyRegistrationNumber: dbProfile.company_registration_number || '',
         address: dbProfile.address || '',
         vatRate: dbProfile.vat_rate || 0,
-        companyRegistrationNumber: dbProfile.company_registration_number || '',
         bankName: dbProfile.bank_name || '',
         accountHolderName: dbProfile.account_holder_name || '',
         accountNumber: dbProfile.account_number || '',
@@ -110,9 +110,9 @@ const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'>
         avatar: appUser.avatar || null,
         company_name: appUser.companyName || null,
         business_registration_code: appUser.businessRegistrationCode || null,
+        company_registration_number: appUser.companyRegistrationNumber || null,
         address: appUser.address || null,
         vat_rate: appUser.vatRate || 0,
-        company_registration_number: appUser.companyRegistrationNumber || null,
         bank_name: appUser.bankName || null,
         account_holder_name: appUser.accountHolderName || null,
         account_number: appUser.accountNumber || null,
@@ -120,6 +120,7 @@ const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'>
         iban_code: appUser.iban || null,
     };
 };
+
 
 // --- Constants & Utilities ---
 const currencyMap: Record<Currency, string> = { 'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹', };
