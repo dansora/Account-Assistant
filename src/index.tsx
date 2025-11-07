@@ -26,7 +26,7 @@ type DbTransaction = {
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
-  company_registration_number: string | null; bank_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
+  company_registration_number: string | null; bank_name: string | null; account_holder_name: string | null; account_number: string | null; sort_code: string | null; iban: string | null;
 };
 
 type Transaction = {
@@ -36,7 +36,7 @@ type Transaction = {
 type User = {
     id: string; updatedAt?: string; fullName: string; username: string; email: string; phone: string; avatar: string;
     companyName: string; businessRegistrationCode: string; address: string; vatRate: number;
-    companyRegistrationNumber: string; bankName: string; accountNumber: string; sortCode: string; iban: string;
+    companyRegistrationNumber: string; bankName: string; accountHolderName: string; accountNumber: string; sortCode: string; iban: string;
 };
 
 type AppView = { page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile'; period?: 'daily' | 'weekly' | 'monthly'; transactionType?: 'income' | 'expense'; };
@@ -58,13 +58,13 @@ const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => (
     id: dbProfile.id, updatedAt: dbProfile.updated_at || undefined, fullName: dbProfile.full_name || '', username: dbProfile.username || '',
     email: authUser.email || '', phone: dbProfile.phone || '', avatar: dbProfile.avatar || '', companyName: dbProfile.company_name || '',
     businessRegistrationCode: dbProfile.business_registration_code || '', address: dbProfile.address || '', vatRate: dbProfile.vat_rate || 0,
-    companyRegistrationNumber: dbProfile.company_registration_number || '', bankName: dbProfile.bank_name || '', accountNumber: dbProfile.account_number || '',
+    companyRegistrationNumber: dbProfile.company_registration_number || '', bankName: dbProfile.bank_name || '', accountHolderName: dbProfile.account_holder_name || '', accountNumber: dbProfile.account_number || '',
     sortCode: dbProfile.sort_code || '', iban: dbProfile.iban || '',
 });
 const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => ({
     full_name: appUser.fullName, username: appUser.username, phone: appUser.phone, avatar: appUser.avatar,
     company_name: appUser.companyName, business_registration_code: appUser.businessRegistrationCode, address: appUser.address, vat_rate: appUser.vatRate,
-    company_registration_number: appUser.companyRegistrationNumber, bank_name: appUser.bankName, account_number: appUser.accountNumber,
+    company_registration_number: appUser.companyRegistrationNumber, bank_name: appUser.bankName, account_holder_name: appUser.accountHolderName, account_number: appUser.accountNumber,
     sort_code: appUser.sortCode, iban: appUser.iban,
 });
 
@@ -117,6 +117,7 @@ const translations: Record<string, Record<Language, string>> = {
   upload_avatar: { en: 'Upload a new picture', ro: 'Încarcă o poză nouă' },
   company_reg_number: { en: 'Company Registration Number', ro: 'Număr de Înregistrare Companie' },
   bank_name: { en: 'Bank Name', ro: 'Numele Băncii' },
+  account_holder_name: { en: 'Account Holder Name', ro: 'Nume Deținător Cont' },
   account_number: { en: 'Account Number', ro: 'Număr Cont' },
   sort_code: { en: 'Sort Code', ro: 'Sort Code' },
   iban: { en: 'IBAN', ro: 'IBAN' },
@@ -126,6 +127,13 @@ const translations: Record<string, Record<Language, string>> = {
   bank_details: { en: 'Bank Details', ro: 'Detalii Bancare' },
   company_number: { en: 'Company No:', ro: 'Nr. Înreg. Companie:' },
   vat_number: { en: 'Tax/VAT No:', ro: 'CUI/TVA:' },
+  edit: { en: 'Edit', ro: 'Editează' },
+  update: { en: 'Update', ro: 'Actualizează' },
+  edit_transaction: { en: 'Edit Transaction', ro: 'Editează Tranzacția' },
+  amount: { en: 'Amount', ro: 'Sumă' },
+  category: { en: 'Category', ro: 'Categorie' },
+  date: { en: 'Date', ro: 'Data' },
+  document_details: { en: 'Document Details', ro: 'Detalii Document' },
 };
 
 const dateUtils = {
@@ -294,6 +302,7 @@ const DocumentViewerModal = ({ transaction, user, currencySymbol, onClose, t }: 
                         {user.bankName && user.accountNumber && (
                             <div className="bank-info">
                                 <p><strong>{t('bank_name')}:</strong> {user.bankName}</p>
+                                {user.accountHolderName && <p><strong>{t('account_holder_name')}:</strong> {user.accountHolderName}</p>}
                                 <p><strong>{t('account_number')}:</strong> {user.accountNumber}</p>
                                 {user.sortCode && <p><strong>{t('sort_code')}:</strong> {user.sortCode}</p>}
                                 {user.iban && <p><strong>{t('iban')}:</strong> {user.iban}</p>}
@@ -311,31 +320,74 @@ const DocumentViewerModal = ({ transaction, user, currencySymbol, onClose, t }: 
     );
 };
 
+const EditTransactionModal = ({ isOpen, onClose, onSubmit, transaction, t }: { isOpen: boolean; onClose: () => void; onSubmit: (data: Transaction) => void; transaction: Transaction | null; t: (key: string) => string; }) => {
+    const [formData, setFormData] = useState<Transaction | null>(transaction);
+    useEffect(() => { setFormData(transaction); }, [transaction]);
+    if (!isOpen || !formData) return null;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const isNumber = type === 'number' || name === 'amount';
+        setFormData(prev => prev ? { ...prev, [name]: isNumber ? parseFloat(value) || 0 : value } : null);
+    };
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (formData) onSubmit(formData); };
+    
+    const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
+    const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
+    const categories = formData.type === 'income' ? incomeCategories : expenseCategories;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3>{t('edit_transaction')}</h3><button onClick={onClose} className="close-button">&times;</button></div>
+            <form onSubmit={handleSubmit} className="edit-transaction-form">
+                <div className="form-field"><label htmlFor="edit-amount">{t('amount')}</label><input id="edit-amount" name="amount" type="number" step="0.01" value={formData.amount} onChange={handleChange} required /></div>
+                <div className="form-field"><label htmlFor="edit-category">{t('category')}</label><select id="edit-category" name="category" value={formData.category} onChange={handleChange}>{categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                <div className="form-field"><label htmlFor="edit-date">{t('date')}</label><input id="edit-date" name="date" type="datetime-local" value={new Date(new Date(formData.date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16)} onChange={e => setFormData({...formData, date: new Date(e.target.value).toISOString()})} required /></div>
+                {formData.type === 'income' && (
+                    <><h4 className="form-section-header">{t('document_details')}</h4>
+                       <div className="form-field"><label htmlFor="edit-clientName">{t('client_name')}</label><input id="edit-clientName" name="clientName" type="text" value={formData.clientName || ''} onChange={handleChange} /></div>
+                       <div className="form-field"><label htmlFor="edit-clientEmail">{t('client_email')}</label><input id="edit-clientEmail" name="clientEmail" type="email" value={formData.clientEmail || ''} onChange={handleChange} /></div>
+                       <div className="form-field"><label htmlFor="edit-paymentLink">{t('payment_link')}</label><input id="edit-paymentLink" name="paymentLink" type="url" value={formData.paymentLink || ''} onChange={handleChange} /></div>
+                       <div className="form-field"><label htmlFor="edit-serviceDescription">{t('service_description')}</label><textarea id="edit-serviceDescription" name="serviceDescription" value={formData.serviceDescription || ''} onChange={handleChange} rows={3}></textarea></div>
+                    </>
+                )}
+                <button type="submit" className="action-button">{t('update')}</button>
+            </form>
+        </div></div>
+    );
+};
+
+const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/></svg>;
 const DetailHeader = ({ title, onBack, t }: { title: string; onBack: () => void; t: (key: string) => string}) => (<div className="detail-header"><button onClick={onBack} className="back-button">&larr; {t('back')}</button><h2>{title}</h2></div>);
-const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string) => string; }> = ({ transaction, currencySymbol, onDocClick, t }) => (
+const TransactionListItem: React.FC<{ transaction: Transaction; currencySymbol: string; onDocClick: (tx: Transaction) => void; onEditClick: (tx: Transaction) => void; t: (key: string) => string; }> = ({ transaction, currencySymbol, onDocClick, onEditClick, t }) => (
     <li className="transaction-item">
         <div className="transaction-details">
             <span className="transaction-date">{new Date(transaction.date).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-            <div className="transaction-meta"><span className="transaction-category">{transaction.category}</span>
-            {transaction.documentType && <button onClick={() => onDocClick(transaction)} className="document-badge">{t(transaction.documentType)} #{transaction.documentNumber}</button>}</div>
+            <div className="transaction-meta">
+                <span className="transaction-category">{transaction.category}</span>
+                {transaction.documentType && <button onClick={() => onDocClick(transaction)} className="document-badge">{t(transaction.documentType)} #{transaction.documentNumber}</button>}
+            </div>
         </div>
-        <span className={`amount ${transaction.type}`}>{transaction.type === 'income' ? '+' : '-'}{currencySymbol}{transaction.amount.toFixed(2)}</span>
+        <div className="transaction-right-panel">
+            <span className={`amount ${transaction.type}`}>{transaction.type === 'income' ? '+' : '-'}{currencySymbol}{transaction.amount.toFixed(2)}</span>
+            <button onClick={() => onEditClick(transaction)} className="edit-button" aria-label={t('edit')}><EditIcon /></button>
+        </div>
     </li>
 );
 
-const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
+const DailyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, onEditClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; onEditClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
     const title = t('todays_type', { type: t(type) });
-    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} /><ul className="transaction-list">{transactions.length > 0 ? (transactions.map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)) : <p>{t('no_transactions_today')}</p>}</ul></div> );
+    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} /><ul className="transaction-list">{transactions.length > 0 ? (transactions.map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />)) : <p>{t('no_transactions_today')}</p>}</ul></div> );
 };
-const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
+const WeeklyDetailPage = ({ transactions, type, onBack, currencySymbol, onDocClick, onEditClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; onEditClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
     const title = t('this_weeks_type', { type: t(type) });
     const groupedByDay = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => { const day = new Date(tx.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }); if (!acc[day]) acc[day] = []; acc[day].push(tx); return acc; }, {});
-    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} />{Object.keys(groupedByDay).length > 0 ? (Object.entries(groupedByDay).map(([day, txs]) => (<div key={day}><h3 className="list-group-header">{day}</h3><ul className="transaction-list">{(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)}</ul></div>))) : <p>{t('no_transactions_week')}</p>}</div> );
+    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} />{Object.keys(groupedByDay).length > 0 ? (Object.entries(groupedByDay).map(([day, txs]) => (<div key={day}><h3 className="list-group-header">{day}</h3><ul className="transaction-list">{(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />)}</ul></div>))) : <p>{t('no_transactions_week')}</p>}</div> );
 };
-const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol, onDocClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; onViewHistory: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
+const MonthlyDetailPage = ({ transactions, type, onBack, onViewHistory, currencySymbol, onDocClick, onEditClick, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; onViewHistory: () => void; currencySymbol: string; onDocClick: (tx: Transaction) => void; onEditClick: (tx: Transaction) => void; t: (key: string, replacements?: Record<string, string>) => string; }) => {
     const title = t('this_months_type', { type: t(type) });
     const groupedByWeek = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => { const week = `${t('week')} ${dateUtils.getWeekOfMonth(new Date(tx.date))}`; if (!acc[week]) acc[week] = []; acc[week].push(tx); return acc; }, {});
-    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} /><button className="action-button" onClick={onViewHistory}>{t('view_history')}</button>{Object.keys(groupedByWeek).length > 0 ? (Object.entries(groupedByWeek).map(([week, txs]) => (<div key={week}><h3 className="list-group-header">{week}</h3><ul className="transaction-list">{(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />)}</ul></div>))) : <p>{t('no_transactions_month')}</p>}</div> );
+    return ( <div className="page-content"><DetailHeader title={title} onBack={onBack} t={t} /><button className="action-button" onClick={onViewHistory}>{t('view_history')}</button>{Object.keys(groupedByWeek).length > 0 ? (Object.entries(groupedByWeek).map(([week, txs]) => (<div key={week}><h3 className="list-group-header">{week}</h3><ul className="transaction-list">{(txs as Transaction[]).map(tx => <TransactionListItem key={tx.id} transaction={tx} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />)}</ul></div>))) : <p>{t('no_transactions_month')}</p>}</div> );
 };
 
 const HistoryPage = ({ transactions, type, onBack, currencySymbol, t }: { transactions: Transaction[]; type: 'income' | 'expense'; onBack: () => void; currencySymbol: string; t: (key: string, replacements?: Record<string, string>) => string; }) => {
@@ -508,6 +560,7 @@ const ProfilePage = ({ user, onUpdate, onLogout, onBack, t }: { user: User; onUp
                 <div className="form-field"><label htmlFor="address">{t('address')}</label><textarea id="address" name="address" value={formData.address} onChange={handleChange} rows={3}></textarea></div>
                 <h3 className="profile-form-section-header">{t('bank_details')}</h3>
                 <div className="form-field"><label htmlFor="bankName">{t('bank_name')}</label><input id="bankName" name="bankName" type="text" value={formData.bankName} onChange={handleChange} /></div>
+                <div className="form-field"><label htmlFor="accountHolderName">{t('account_holder_name')}</label><input id="accountHolderName" name="accountHolderName" type="text" value={formData.accountHolderName} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="accountNumber">{t('account_number')}</label><input id="accountNumber" name="accountNumber" type="text" value={formData.accountNumber} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="sortCode">{t('sort_code')}</label><input id="sortCode" name="sortCode" type="text" value={formData.sortCode} onChange={handleChange} /></div>
                 <div className="form-field"><label htmlFor="iban">{t('iban')}</label><input id="iban" name="iban" type="text" value={formData.iban} onChange={handleChange} /></div>
@@ -596,6 +649,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<AppView>({ page: 'main' });
   const [viewingDocument, setViewingDocument] = useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [theme, setTheme] = useState<Theme>('auto');
   const [fontSize, setFontSize] = useState<FontSize>('medium');
@@ -658,6 +712,19 @@ function App() {
     else if (inserted) setTransactions(prev => [dbTransactionToApp(inserted), ...prev]);
   }, [user]);
 
+  const handleUpdateTransaction = async (updatedTx: Transaction) => {
+    const { id, userId, createdAt, ...updateData } = updatedTx;
+    const dbUpdateData = appTransactionToDb(updateData);
+    const { data, error } = await supabase.from('transactions').update(dbUpdateData).eq('id', id).select().single();
+    if (error) {
+        console.error('Error updating transaction:', error);
+    } else if (data) {
+        const newlyUpdatedTx = dbTransactionToApp(data);
+        setTransactions(prevTxs => prevTxs.map(tx => tx.id === id ? newlyUpdatedTx : tx));
+        setEditingTransaction(null);
+    }
+  };
+
   const { dailyIncome, weeklyIncome, monthlyIncome, dailyExpenses, weeklyExpenses, monthlyExpenses, dailyTransactions, weeklyTransactions, monthlyTransactions } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
     const filteredLists = { dailyTransactions: [] as Transaction[], weeklyTransactions: [] as Transaction[], monthlyTransactions: [] as Transaction[] };
@@ -680,10 +747,11 @@ function App() {
         const onBack = () => setView({ page: transactionType });
         const onViewHistory = () => setView({ page: 'history', transactionType });
         const onDocClick = (tx: Transaction) => setViewingDocument(tx);
+        const onEditClick = (tx: Transaction) => setEditingTransaction(tx);
         switch (period) {
-            case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />;
-            case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />;
-            case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} onDocClick={onDocClick} t={t} />;
+            case 'daily': return <DailyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />;
+            case 'weekly': return <WeeklyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />;
+            case 'monthly': return <MonthlyDetailPage transactions={relevantTransactions} type={transactionType} onBack={onBack} onViewHistory={onViewHistory} currencySymbol={currencySymbol} onDocClick={onDocClick} onEditClick={onEditClick} t={t} />;
             default: setView({ page: 'main' }); return null;
         }
     }
@@ -707,6 +775,7 @@ function App() {
       <Footer currentPage={view.page} onNavClick={handleNavClick as (page: string) => void} t={t} />
       <ScrollToTop mainRef={mainRef} />
       <DocumentViewerModal transaction={viewingDocument} user={user} currencySymbol={currencySymbol} onClose={() => setViewingDocument(null)} t={t} />
+      <EditTransactionModal isOpen={!!editingTransaction} onClose={() => setEditingTransaction(null)} onSubmit={handleUpdateTransaction} transaction={editingTransaction} t={t} />
     </div>
   );
 }
