@@ -3,17 +3,24 @@ import ReactDOM from 'react-dom/client';
 import { createClient, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import './index.css';
 
-// --- Supabase Client ---
+// --- Supabase Client Initialization ---
 const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
+let supabase: any = null;
+let supabaseError: string | null = null;
+
 if (!supabaseUrl || !supabaseAnonKey) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;padding:15px;background-color:#e74c3c;color:white;text-align:center;font-family:sans-serif;z-index:9999;';
-    errorDiv.innerText = 'Supabase URL and Anon Key are not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.';
-    document.body.prepend(errorDiv);
+    supabaseError = 'Supabase URL and Anon Key are not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.';
+    console.error(supabaseError);
+} else {
+    try {
+        supabase = createClient(supabaseUrl, supabaseAnonKey);
+    } catch (e: any) {
+        supabaseError = `Failed to initialize Supabase client: ${e.message}`;
+        console.error(supabaseError);
+    }
 }
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // --- Type Definitions ---
 type DbTransaction = {
@@ -867,6 +874,11 @@ function App() {
     let mounted = true;
 
     const initAuth = async () => {
+      if (!supabase) {
+          // If supabase failed to init, skip this
+          if (mounted) setIsInitializing(false);
+          return;
+      }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
@@ -882,22 +894,25 @@ function App() {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (mounted) {
-            setSession(session);
-            if (session) {
-                fetchUserData(session.user.id); 
-            } else {
-                setUser(null);
-                setTransactions([]);
+    if (supabase) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+            if (mounted) {
+                setSession(session);
+                if (session) {
+                    fetchUserData(session.user.id); 
+                } else {
+                    setUser(null);
+                    setTransactions([]);
+                }
             }
-        }
-    });
-
-    return () => {
+        });
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    } else {
         mounted = false;
-        subscription.unsubscribe();
-    };
+    }
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -1059,6 +1074,18 @@ function App() {
     });
     return {...totals, ...lists};
   }, [transactions]);
+
+  // --- RENDER GUARD: Configuration Error ---
+  if (supabaseError) {
+      return (
+          <div className="app-container" style={{justifyContent: 'center', alignItems: 'center', padding: '20px', textAlign: 'center'}}>
+              <div style={{backgroundColor: '#fee2e2', color: '#991b1b', padding: '20px', borderRadius: '8px', border: '1px solid #f87171', maxWidth: '500px'}}>
+                  <h3 style={{marginBottom: '10px', fontSize: '1.2rem'}}>Configuration Error</h3>
+                  <p>{supabaseError}</p>
+              </div>
+          </div>
+      );
+  }
 
   if (isInitializing) {
     return <div className="app-container"><div className="loading-spinner"></div></div>;
