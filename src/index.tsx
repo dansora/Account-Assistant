@@ -19,7 +19,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null; attachment_url: string | null;
+  client_email: string | null; service_description: string | null; attachment_url: string | null; attachment_bucket: string | null;
 };
 type DbProfile = {
   id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
@@ -31,7 +31,7 @@ type DbProfile = {
 type Transaction = {
   id: number; userId: string; createdAt: string; date: string; type: 'income' | 'expense'; amount: number; category: string;
   documentType?: 'receipt' | 'invoice'; documentNumber?: string; clientName?: string; clientEmail?: string; serviceDescription?: string; paymentLink?: string;
-  attachmentUrl?: string;
+  attachmentUrl?: string; attachmentBucket?: string;
 };
 type User = {
     id: string; updatedAt?: string; fullName: string; username: string; email: string; phone: string; avatar: string;
@@ -62,6 +62,7 @@ const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
         serviceDescription: serviceDescription,
         paymentLink: paymentLink,
         attachmentUrl: dbTx.attachment_url || undefined,
+        attachmentBucket: dbTx.attachment_bucket || undefined,
     };
 };
 
@@ -72,12 +73,20 @@ const mapTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'i
         serviceDescription = `${serviceDescription} ${paymentLinkMarker}${appTx.paymentLink}`;
     }
 
+    // Strictly return ONLY the fields present in the DbTransaction definition (excluding id, created_at)
     return {
-        user_id: appTx.userId, date: appTx.date!, type: appTx.type!, amount: appTx.amount!, category: appTx.category!,
-        document_type: appTx.documentType || null, document_number: appTx.documentNumber || null, client_name: appTx.clientName || null,
+        user_id: appTx.userId, 
+        date: appTx.date!, 
+        type: appTx.type!, 
+        amount: appTx.amount!, 
+        category: appTx.category!,
+        document_type: appTx.documentType || null, 
+        document_number: appTx.documentNumber || null, 
+        client_name: appTx.clientName || null,
         client_email: appTx.clientEmail || null,
         service_description: serviceDescription.trim() || null,
         attachment_url: appTx.attachmentUrl || null,
+        attachment_bucket: appTx.attachmentBucket || null,
     };
 };
 
@@ -946,8 +955,8 @@ function App() {
               attachmentUrl = urlData.publicUrl;
           }
 
-          // 2. Construct transaction for DB insertion, ensuring NO bucket field is included
-          const newTx: Partial<Transaction> = {
+          // 2. Create a temporary transaction object to use the mapper for consistent field handling
+          const tempTx: Partial<Transaction> = {
               userId: session.user.id,
               date: new Date().toISOString(),
               type: data.type,
@@ -959,21 +968,30 @@ function App() {
               clientName: (data as any).clientName,
               clientEmail: (data as any).clientEmail,
               paymentLink: (data as any).paymentLink,
-              attachmentUrl: attachmentUrl || undefined
+              attachmentUrl: attachmentUrl || undefined,
+              attachmentBucket: data.bucket // Pass the bucket used for upload to the transaction record
           };
 
-          // 3. Convert to DB format explicitly
-          const dbData = mapTransactionToDb(newTx);
-          
-          // 4. Explicitly delete the invalid keys if they somehow exist (Double Check)
-          if ('attachment_bucket' in (dbData as any)) {
-             delete (dbData as any)['attachment_bucket'];
-          }
-          if ('bucket' in (dbData as any)) {
-             delete (dbData as any)['bucket'];
-          }
+          const dbDataRaw = mapTransactionToDb(tempTx);
 
-          // 5. Insert into DB
+          // 3. MANUAL construction of the final object to ensure NO stray properties exist.
+          // This strictly enforces the schema and prevents "column not found" errors.
+          const dbData = {
+            user_id: dbDataRaw.user_id,
+            date: dbDataRaw.date,
+            type: dbDataRaw.type,
+            amount: dbDataRaw.amount,
+            category: dbDataRaw.category,
+            document_type: dbDataRaw.document_type,
+            document_number: dbDataRaw.document_number,
+            client_name: dbDataRaw.client_name,
+            client_email: dbDataRaw.client_email,
+            service_description: dbDataRaw.service_description,
+            attachment_url: dbDataRaw.attachment_url,
+            attachment_bucket: dbDataRaw.attachment_bucket
+          };
+
+          // 4. Insert into DB
           const { error } = await supabase.from('transactions').insert([dbData]);
           if (error) throw error;
           
@@ -989,7 +1007,23 @@ function App() {
   const updateTransaction = async (updatedTx: Transaction) => {
       setLoading(true);
       try {
-          const dbData = mapTransactionToDb(updatedTx);
+          const dbDataRaw = mapTransactionToDb(updatedTx);
+          
+          // Explicitly construct object to allow updates, preventing any schema issues
+          const dbData = {
+            date: dbDataRaw.date,
+            type: dbDataRaw.type,
+            amount: dbDataRaw.amount,
+            category: dbDataRaw.category,
+            document_type: dbDataRaw.document_type,
+            document_number: dbDataRaw.document_number,
+            client_name: dbDataRaw.client_name,
+            client_email: dbDataRaw.client_email,
+            service_description: dbDataRaw.service_description,
+            attachment_url: dbDataRaw.attachment_url,
+            attachment_bucket: dbDataRaw.attachment_bucket
+          };
+
           const { error } = await supabase.from('transactions').update(dbData).eq('id', updatedTx.id);
           if (error) throw error;
           await fetchTransactions();
