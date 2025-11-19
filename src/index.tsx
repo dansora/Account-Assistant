@@ -739,7 +739,7 @@ const Header = ({ t, language, onLanguageChange, user, onNavClick }: { t: (key: 
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69-.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59-1.69-.98l2.49 1c.23.09.49 0 .61-.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const Footer = ({ currentPage, onNavClick, t }: { currentPage: string; onNavClick: (page: string) => void; t: (key: string) => string; }) => {
     const navItems = [{ page: 'main', label: t('home'), icon: <HomeIcon /> }, { page: 'income', label: t('income'), icon: <IncomeIcon /> }, { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> }, { page: 'tax', label: t('tax'), icon: <TaxIcon /> }, { page: 'settings', label: t('settings'), icon: <SettingsIcon /> }, ];
@@ -933,9 +933,6 @@ function App() {
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  // FIX: Updated the type definition for the 'data' parameter.
-  // - Renamed 'attachmentBucket' to 'bucket' to match the property being passed from modals.
-  // - Added an optional 'description' property to handle descriptions from the ExpenseModal.
   const addTransaction = useCallback(async (data: {
     type: 'income' | 'expense',
     amount: number,
@@ -951,49 +948,66 @@ function App() {
     description?: string,
   }) => {
     if (!user) {
-        console.error("User not authenticated when adding transaction.");
-        alert(t('login_failed')); 
+        alert(t('login_failed'));
         return;
     }
 
+    // Prepare file upload if needed
     let attachmentUrl = data.attachmentUrl;
     if (data.file && data.bucket) {
-        const filePath = `${user.id}/${Date.now()}_${data.file.name}`;
+        const fileExt = data.file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
         const { error: uploadError } = await supabase.storage.from(data.bucket).upload(filePath, data.file);
         if (uploadError) {
             console.error('Error uploading file:', uploadError);
             alert(`Failed to upload file: ${uploadError.message}`);
-            return;
+            return; // Stop if upload fails
         }
+        
         const { data: urlData } = supabase.storage.from(data.bucket).getPublicUrl(filePath);
         attachmentUrl = urlData.publicUrl;
     }
 
     const prefix = data.documentType === 'invoice' ? 'FACT-' : data.documentType === 'receipt' ? 'CHIT-' : '';
     const newTx: Partial<Transaction> = {
-        userId: user.id, type: data.type, amount: data.amount, category: data.category, date: new Date().toISOString(),
-        documentType: data.documentType, clientName: data.clientName, clientEmail: data.clientEmail,
-        // FIX: Coalesce 'serviceDescription' and 'description' to ensure expense descriptions are saved.
+        userId: user.id, 
+        type: data.type, 
+        amount: data.amount, 
+        category: data.category, 
+        date: new Date().toISOString(),
+        documentType: data.documentType, 
+        clientName: data.clientName, 
+        clientEmail: data.clientEmail,
         serviceDescription: data.serviceDescription || data.description,
         paymentLink: data.paymentLink,
         documentNumber: data.documentType ? `${prefix}${Date.now()}` : undefined,
-        attachmentUrl: attachmentUrl, attachmentBucket: data.bucket,
+        attachmentUrl: attachmentUrl, 
+        attachmentBucket: data.bucket,
     };
 
     try {
         const dbTx = appTransactionToDb(newTx);
+        console.log('Saving transaction:', dbTx);
+
         const { data: inserted, error } = await supabase.from('transactions').insert(dbTx).select().single();
         
         if (error) {
-            console.error('Error adding transaction:', error);
-            alert(`Failed to save transaction: ${error.message}`);
+            console.error('Error inserting transaction:', error);
+            alert(`Error saving transaction: ${error.message}`);
         } else if (inserted) {
+            console.log('Transaction saved:', inserted);
             setTransactions(prev => [dbTransactionToApp(inserted), ...prev]);
         } else {
-            // Fallback if select() fails (e.g. RLS) but insert succeeded
-            console.warn("Transaction inserted but no data returned. Refreshing...");
-             const { data: allData } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-             if (allData) setTransactions(allData.map(dbTransactionToApp));
+            // Fallback if select() fails due to RLS or other reasons
+            console.warn('Transaction inserted but no data returned. Refreshing list...');
+            const { data: allData, error: fetchError } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+            if (fetchError) {
+                 console.error('Error fetching transactions after insert:', fetchError);
+            } else if (allData) {
+                 setTransactions(allData.map(dbTransactionToApp));
+            }
         }
     } catch (err) {
         console.error("Exception in addTransaction:", err);
