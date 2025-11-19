@@ -844,6 +844,7 @@ function App() {
   const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
   const [mainViewPeriod, setMainViewPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const t = useCallback((key: string, replacements?: Record<string, string>) => {
       let text = translations[key]?.[language] || key;
@@ -856,15 +857,40 @@ function App() {
   }, [language]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchUserData(session.user.id);
-    });
+    let mounted = true;
+
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+            setSession(session);
+            if (session) await fetchUserData(session.user.id);
+        }
+      } catch (error) {
+        console.error("Auth init error", error);
+      } finally {
+        if (mounted) setIsInitializing(false);
+      }
+    };
+
+    initAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchUserData(session.user.id); else { setUser(null); setTransactions([]); }
+        if (mounted) {
+            setSession(session);
+            if (session) {
+                fetchUserData(session.user.id); 
+            } else {
+                setUser(null);
+                setTransactions([]);
+            }
+        }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -1004,6 +1030,10 @@ function App() {
     });
     return {...totals, ...lists};
   }, [transactions]);
+
+  if (isInitializing) {
+    return <div className="app-container"><div className="loading-spinner"></div></div>;
+  }
 
   if (!session) return <AuthPage onLogin={() => {}} />;
 
