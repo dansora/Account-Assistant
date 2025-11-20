@@ -1,227 +1,79 @@
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient, Session, User as SupabaseUser } from '@supabase/supabase-js';
 import './index.css';
+import { Transaction, User, AppView, Theme, FontSize, Currency, Language } from './types';
+import { currencyMap, languageToLocaleMap, translations, dateUtils, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile } from './utils';
+
+// --- Error Boundary Component ---
+interface ErrorBoundaryProps {
+  children?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="app-container" style={{justifyContent: 'center', alignItems: 'center', padding: '20px', textAlign: 'center'}}>
+            <div className="error-box">
+                <h3>Something went wrong</h3>
+                <p className="error-message">{this.state.error?.message || 'An unexpected error occurred.'}</p>
+                <button onClick={() => window.location.reload()} className="action-button" style={{width: 'auto', marginTop: '20px', display: 'inline-block'}}>
+                    Reload Page
+                </button>
+            </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 // --- Supabase Client Initialization ---
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+const getEnv = (key: string) => {
+    try {
+        // @ts-ignore
+        return import.meta.env?.[key] || '';
+    } catch (e) {
+        console.warn(`Failed to access env var ${key}`, e);
+        return '';
+    }
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
 let supabase: any = null;
 let supabaseError: string | null = null;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    supabaseError = 'Supabase URL and Anon Key are not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.';
+    supabaseError = 'Application Configuration Error: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are missing. Please check your environment settings.';
     console.error(supabaseError);
 } else {
     try {
         supabase = createClient(supabaseUrl, supabaseAnonKey);
     } catch (e: any) {
-        supabaseError = `Failed to initialize Supabase client: ${e.message}`;
+        supabaseError = `Failed to initialize database connection: ${e.message}`;
         console.error(supabaseError);
     }
 }
-
-// --- Type Definitions ---
-type DbTransaction = {
-  id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
-  category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
-  client_email: string | null; service_description: string | null; attachment_url: string | null;
-};
-type DbProfile = {
-  id: string; updated_at: string | null; full_name: string | null; username: string | null; phone: string | null;
-  avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
-  company_registration_number: string | null; bank_name: string | null; account_holder_name: string | null; account_number: string | null;
-  sort_code: string | null; iban_code: string | null;
-};
-
-type Transaction = {
-  id: number; userId: string; createdAt: string; date: string; type: 'income' | 'expense'; amount: number; category: string;
-  documentType?: 'receipt' | 'invoice'; documentNumber?: string; clientName?: string; clientEmail?: string; serviceDescription?: string; paymentLink?: string;
-  attachmentUrl?: string;
-};
-type User = {
-    id: string; updatedAt?: string; fullName: string; username: string; email: string; phone: string; avatar: string;
-    companyName: string; businessRegistrationCode: string; address: string; vatRate: number;
-    companyRegistrationNumber: string; bankName: string; accountHolderName: string; accountNumber: string; sortCode: string; iban: string;
-};
-
-type AppView = { page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile'; period?: 'daily' | 'weekly' | 'monthly'; transactionType?: 'income' | 'expense'; };
-type Theme = 'light' | 'dark' | 'auto'; type FontSize = 'small' | 'medium' | 'large'; type Language = 'en' | 'ro';
-type Currency = 'GBP' | 'USD' | 'CAD' | 'AUD' | 'EUR' | 'JPY' | 'CNY' | 'CHF' | 'INR';
-
-// --- Data Mapping ---
-const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
-    const paymentLinkMarker = '[PAYMENT_LINK]';
-    let serviceDescription = dbTx.service_description || undefined;
-    let paymentLink: string | undefined;
-
-    if (serviceDescription && serviceDescription.includes(paymentLinkMarker)) {
-        const parts = serviceDescription.split(paymentLinkMarker);
-        serviceDescription = parts[0].trim() || undefined;
-        paymentLink = parts[1] || undefined;
-    }
-
-    return {
-        id: dbTx.id, userId: dbTx.user_id, createdAt: dbTx.created_at, date: dbTx.date, type: dbTx.type, amount: dbTx.amount, category: dbTx.category,
-        documentType: dbTx.document_type || undefined, documentNumber: dbTx.document_number || undefined, clientName: dbTx.client_name || undefined,
-        clientEmail: dbTx.client_email || undefined,
-        serviceDescription: serviceDescription,
-        paymentLink: paymentLink,
-        attachmentUrl: dbTx.attachment_url || undefined,
-    };
-};
-
-const mapTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => {
-    const paymentLinkMarker = '[PAYMENT_LINK]';
-    let serviceDescription = appTx.serviceDescription || '';
-    if (appTx.paymentLink) {
-        serviceDescription = `${serviceDescription} ${paymentLinkMarker}${appTx.paymentLink}`;
-    }
-
-    // Strictly return ONLY the fields present in the DbTransaction definition (excluding id, created_at)
-    return {
-        user_id: appTx.userId, 
-        date: appTx.date!, 
-        type: appTx.type!, 
-        amount: appTx.amount!, 
-        category: appTx.category!,
-        document_type: appTx.documentType || null, 
-        document_number: appTx.documentNumber || null, 
-        client_name: appTx.clientName || null,
-        client_email: appTx.clientEmail || null,
-        service_description: serviceDescription.trim() || null,
-        attachment_url: appTx.attachmentUrl || null,
-    };
-};
-
-const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
-    return {
-        id: dbProfile.id,
-        updatedAt: dbProfile.updated_at || undefined,
-        fullName: dbProfile.full_name || '',
-        username: dbProfile.username || '',
-        email: authUser.email || '',
-        phone: dbProfile.phone || '',
-        avatar: dbProfile.avatar || '',
-        companyName: dbProfile.company_name || '',
-        businessRegistrationCode: dbProfile.business_registration_code || '',
-        companyRegistrationNumber: dbProfile.company_registration_number || '',
-        address: dbProfile.address || '',
-        vatRate: dbProfile.vat_rate || 0,
-        bankName: dbProfile.bank_name || '',
-        accountHolderName: dbProfile.account_holder_name || '',
-        accountNumber: dbProfile.account_number || '',
-        sortCode: dbProfile.sort_code || '',
-        iban: dbProfile.iban_code || '',
-    };
-};
-
-const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => {
-    return {
-        full_name: appUser.fullName || null,
-        username: appUser.username || null,
-        phone: appUser.phone || null,
-        avatar: appUser.avatar || null,
-        company_name: appUser.companyName || null,
-        business_registration_code: appUser.businessRegistrationCode || null,
-        company_registration_number: appUser.companyRegistrationNumber || null,
-        address: appUser.address || null,
-        vat_rate: appUser.vatRate || 0,
-        bank_name: appUser.bankName || null,
-        account_holder_name: appUser.accountHolderName || null,
-        account_number: appUser.accountNumber || null,
-        sort_code: appUser.sortCode || null,
-        iban_code: appUser.iban || null,
-    };
-};
-
-
-// --- Constants & Utilities ---
-const currencyMap: Record<Currency, string> = { 'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹', };
-const languageToLocaleMap: Record<Language, string> = { 'en': 'en-GB', 'ro': 'ro-RO' };
-const translations: Record<string, Record<Language, string>> = {
-  income: { en: 'Income', ro: 'Venit' }, expense: { en: 'Expense', ro: 'Cheltuială' }, balance: { en: 'Balance', ro: 'Balanță' },
-  daily: { en: 'Daily', ro: 'Zilnic' }, weekly: { en: 'Weekly', ro: 'Săptămânal' }, monthly: { en: 'Monthly', ro: 'Lunar' },
-  back: { en: 'Back', ro: 'Înapoi' }, week: { en: 'Week', ro: 'Săptămâna'},
-  welcome: { en: 'Welcome to Account Assistant', ro: 'Bun venit la Asistentul Contabil' }, slogan: { en: 'Your Accountancy Assistant for MTD', ro: 'Asistentul tău Contabil pentru MTD' },
-  home: { en: 'Home', ro: 'Acasă' }, tax: { en: 'Tax', ro: 'Taxe' }, settings: { en: 'Settings', ro: 'Setări' }, dashboard: { en: 'Dashboard', ro: 'Panou de control' },
-  add_income: { en: 'Add Income', ro: 'Adaugă Venit' }, add_expense: { en: 'Add Expense', ro: 'Adaugă Cheltuială' },
-  income_breakdown: { en: '{period} Income Breakdown', ro: 'Detalii Venituri {period}' }, expense_breakdown: { en: '{period} Expense Breakdown', ro: 'Detalii Cheltuieli {period}' },
-  add_entry: { en: 'Add Entry', ro: 'Adaugă Înregistrare' }, clear: { en: 'Clear', ro: 'Șterge' }, enter: { en: 'Enter', ro: 'Introdu' },
-  todays_type: { en: 'Today\'s {type}', ro: '{type} de Azi' }, no_transactions_today: { en: 'No transactions for today.', ro: 'Nicio tranzacție azi.' },
-  this_weeks_type: { en: 'This Week\'s {type}', ro: '{type} Săptămâna Aceasta' }, no_transactions_week: { en: 'No transactions for this week.', ro: 'Nicio tranzacție săptămâna aceasta.' },
-  this_months_type: { en: 'This Month\'s {type}', ro: '{type} Luna Aceasta' }, view_history: { en: 'View History', ro: 'Vezi Istoric' },
-  no_transactions_month: { en: 'No transactions for this month.', ro: 'Nicio tranzacție luna aceasta.' }, monthly_history: { en: 'Monthly {type} History', ro: 'Istoric Lunar {type}' },
-  no_transactions_period: { en: 'No transactions for this period.', ro: 'Nicio tranzacție pentru această perioadă.'},
-  appearance: { en: 'Appearance', ro: 'Aspect' }, light: { en: 'Light', ro: 'Luminos' }, dark: { en: 'Dark', ro: 'Întunecat' }, auto: { en: 'Auto', ro: 'Automat' },
-  font_size: { en: 'Font Size', ro: 'Dimensiune Font' }, small: { en: 'Small', ro: 'Mic' }, medium: { en: 'Medium', ro: 'Mediu' }, large: { en: 'Large', ro: 'Mare' },
-  currency: { en: 'Currency', ro: 'Monedă' }, contact_us: { en: 'Contact Us', ro: 'Contactează-ne' },
-  contact_intro: { en: 'Have a question or feedback? We\'d love to hear from you.', ro: 'Ai o întrebare sau un feedback? Ne-ar plăcea să auzim de la tine.' },
-  contact_name: { en: 'Name', ro: 'Nume' }, contact_your_name: { en: 'Your Name', ro: 'Numele tău' }, contact_email: { en: 'Email', ro: 'Email' },
-  contact_your_email: { en: 'your@email.com', ro: 'emailul@tau.com' }, contact_phone: { en: 'Phone Number (Optional)', ro: 'Număr de Telefon (Opțional)' },
-  contact_your_phone: { en: 'Your Phone Number', ro: 'Numărul tău de telefon' }, contact_message: { en: 'Message', ro: 'Mesaj' },
-  contact_enter_message: { en: 'Enter your message here...', ro: 'Introdu mesajul tău aici...' }, send_message: { en: 'Send Message', ro: 'Trimite Mesaj' },
-  tax_report: { en: 'Tax Report', ro: 'Raport Fiscal' }, tax_subtitle: { en: 'Select a period to generate your report.', ro: 'Selectează o perioadă pentru a genera raportul.' },
-  start_date: { en: 'Start Date', ro: 'Data de început' }, end_date: { en: 'End Date', ro: 'Data de sfârșit' }, select_date: { en: 'Select a date', ro: 'Selectează o dată' },
-  report_summary: { en: 'Report Summary', ro: 'Sumar Raport' }, total_income: { en: 'Total Income:', ro: 'Venit Total:' }, total_expense: { en: 'Total Expense:', ro: 'Cheltuieli Totale:' },
-  download_csv: { en: 'Download Report (.csv)', ro: 'Descarcă Raport (.csv)' }, send_email: { en: 'Send Email', ro: 'Trimite Email' },
-  login: { en: 'Login', ro: 'Autentificare' }, signup: { en: 'Sign Up', ro: 'Înregistrare' }, email_address: { en: 'Email Address', ro: 'Adresă de Email' }, password: { en: 'Password', ro: 'Parolă' },
-  full_name: { en: 'Full Name', ro: 'Nume Complet' }, username: { en: 'Username', ro: 'Nume utilizator' },
-  no_account: { en: "Don't have an account? Sign Up", ro: 'Nu ai cont? Înregistrează-te' }, has_account: { en: 'Already have an account? Login', ro: 'Ai deja cont? Autentifică-te' },
-  logout: { en: 'Logout', ro: 'Deconectare' }, profile: { en: 'Profile', ro: 'Profil' }, phone_number: { en: 'Phone Number', ro: 'Număr de Telefon' },
-  profile_picture: { en: 'Profile Picture', ro: 'Poză de Profil' }, update_profile: { en: 'Update Profile', ro: 'Actualizează Profilul' },
-  login_failed: { en: 'Invalid login credentials.', ro: 'Credențiale de autentificare invalide.' },
-  signup_failed: { en: 'An account with this email already exists.', ro: 'Un cont cu acest email există deja.' },
-  signup_generic_error: { en: 'An unexpected error occurred. Please try again.', ro: 'A apărut o eroare neașteptată. Vă rugăm să încercați din nou.' },
-  check_email_confirmation: { en: 'Signup successful! Please check your email to confirm your account.', ro: 'Înregistrare reușită! Te rog verifică-ți emailul pentru a confirma contul.' },
-  company_name: { en: 'Company Name', ro: 'Nume Companie' }, business_reg_code: { en: 'Business Registration Code', ro: 'Cod de Înregistrare Fiscală' }, address: { en: 'Address', ro: 'Adresă' },
-  generate_document: { en: 'Generate Document', ro: 'Generează Document' }, none: { en: 'None', ro: 'Niciunul' }, receipt: { en: 'Receipt', ro: 'Chitanță' },
-  invoice: { en: 'Invoice', ro: 'Factură' }, client_name: { en: 'Client Name', ro: 'Nume Client' }, client_email: { en: 'Client Email (for sending)', ro: 'Email Client (pentru trimitere)' },
-  service_description: { en: 'Service Description', ro: 'Descriere Serviciu' }, vat_rate: { en: 'VAT Rate', ro: 'Cotă TVA' },
-  print: { en: 'Print', ro: 'Tipărește' }, send: { en: 'Send', ro: 'Trimite' }, from: { en: 'From:', ro: 'De la:' }, to: { en: 'To:', ro: 'Către:' },
-  date_issued: { en: 'Date Issued:', ro: 'Data emiterii:' }, subtotal: { en: 'Subtotal', ro: 'Subtotal' }, vat: { en: 'VAT', ro: 'TVA' },
-  total: { en: 'Total', ro: 'Total' }, thank_you: { en: 'Thank you for your business!', ro: 'Vă mulțumim!' },
-  payment_received: { en: 'Payment received. Thank you!', ro: 'Plata a fost primită. Vă mulțumim!' },
-  upload_avatar: { en: 'Upload a new picture', ro: 'Încarcă o poză nouă' },
-  company_reg_number: { en: 'Company Registration Number', ro: 'Număr de Înregistrare Companie' },
-  bank_name: { en: 'Bank Name', ro: 'Numele Băncii' },
-  account_holder_name: { en: 'Account Holder Name', ro: 'Nume Deținător Cont' },
-  account_number: { en: 'Account Number', ro: 'Număr Cont' },
-  sort_code: { en: 'Sort Code', ro: 'Sort Code' },
-  iban: { en: 'IBAN', ro: 'IBAN' },
-  payment_link: { en: 'Payment Link', ro: 'Link Plată' },
-  payment_details: { en: 'Payment Details', ro: 'Detalii Plată' },
-  pay_now: { en: 'Pay Now', ro: 'Plătește Acum' },
-  bank_details: { en: 'Bank Details', ro: 'Detalii Bancare' },
-  company_number: { en: 'Company No:', ro: 'Nr. Înreg. Companie:' },
-  vat_number: { en: 'Tax/VAT No:', ro: 'CUI/TVA:' },
-  edit: { en: 'Edit', ro: 'Editează' },
-  update: { en: 'Update', ro: 'Actualizează' },
-  edit_transaction: { en: 'Edit Transaction', ro: 'Editează Tranzacția' },
-  amount: { en: 'Amount', ro: 'Sumă' },
-  category: { en: 'Category', ro: 'Categorie' },
-  date: { en: 'Date', ro: 'Data' },
-  document_details: { en: 'Document Details', ro: 'Detalii Document' },
-  description: { en: 'Description', ro: 'Descriere' },
-  take_photo: { en: 'Take Photo', ro: 'Fotografiază Chitanța' },
-  upload_document: { en: 'Upload Document', ro: 'Încarcă Document' },
-  capture: { en: 'Capture', ro: 'Capturează' },
-  cancel: { en: 'Cancel', ro: 'Anulează' },
-  remove: { en: 'Remove', ro: 'Elimină' },
-};
-
-const dateUtils = {
-  isToday: (date: Date) => { const today = new Date(); return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); },
-  isThisWeek: (date: Date) => { const today = new Date(); const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1))); firstDayOfWeek.setHours(0, 0, 0, 0); const lastDayOfWeek = new Date(firstDayOfWeek); lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6); lastDayOfWeek.setHours(23, 59, 59, 999); return date >= firstDayOfWeek && date <= lastDayOfWeek; },
-  isThisMonth: (date: Date) => { const today = new Date(); return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); },
-  getWeekOfMonth: (date: Date) => { const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay(); const offsetDate = date.getDate() + firstDayOfMonth - 1; return Math.floor(offsetDate / 7) + 1; }
-};
-
-const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader(); reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string); reader.onerror = error => reject(error);
-});
 
 // --- Components ---
 
@@ -631,8 +483,6 @@ const CategoryBreakdown = ({ title, transactions, totalAmount, currencySymbol, t
     return ( <div className="category-breakdown-container"><h3>{title}</h3>{breakdown.length > 0 ? ( <ul className="category-list">{breakdown.map(({ category, amount, percentage }) => ( <li key={category} className="category-item"><div className="category-info"><span className="category-name">{category}</span><span className={`category-amount amount ${type}`}>{currencySymbol}{amount.toFixed(2)}</span></div><div className="progress-bar-container"><div className={`progress-bar ${type}`} style={{ width: `${percentage}%` }} role="progressbar" aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100}></div></div><span className="category-percentage">{percentage.toFixed(1)}%</span></li>))}</ul>) : <p>{t('no_transactions_period')}</p>}</div> );
 };
 
-// --- Reconstructed Pages from original snippet ---
-
 const AuthPage = ({ onLogin }: { onLogin: () => void }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -833,7 +683,6 @@ const TaxPage = ({ transactions, currencySymbol, t }: any) => {
     );
 };
 
-// --- Icons ---
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
@@ -875,7 +724,6 @@ function App() {
 
     const initAuth = async () => {
       if (!supabase) {
-          // If supabase failed to init, skip this
           if (mounted) setIsInitializing(false);
           return;
       }
@@ -920,7 +768,6 @@ function App() {
       try {
           let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
           if (error && error.code === 'PGRST116') {
-               // Profile doesn't exist, create one
                const { data: newProfile, error: createError } = await supabase.from('profiles').insert([{ id: userId }]).select().single();
                if (createError) throw createError;
                profile = newProfile;
@@ -953,11 +800,9 @@ function App() {
       setLoading(true);
       try {
           let attachmentUrl = null;
-          // 1. Handle File Upload separately
           if (data.file && data.bucket) {
               const fileExt = data.file.name.split('.').pop();
               const fileName = `${session.user.id}/${Date.now()}.${fileExt}`;
-              // Upload to bucket
               const { error: uploadError } = await supabase.storage
                   .from(data.bucket)
                   .upload(fileName, data.file);
@@ -968,7 +813,6 @@ function App() {
               attachmentUrl = urlData.publicUrl;
           }
 
-          // 2. Create a temporary transaction object to use the mapper for consistent field handling
           const tempTx: Partial<Transaction> = {
               userId: session.user.id,
               date: new Date().toISOString(),
@@ -981,29 +825,13 @@ function App() {
               clientName: (data as any).clientName,
               clientEmail: (data as any).clientEmail,
               paymentLink: (data as any).paymentLink,
-              attachmentUrl: attachmentUrl || undefined
+              attachmentUrl: attachmentUrl || undefined,
+              attachmentBucket: data.bucket || undefined 
           };
 
           const dbDataRaw = mapTransactionToDb(tempTx);
-
-          // 3. MANUAL construction of the final object to ensure NO stray properties exist.
-          // This strictly enforces the schema and prevents "column not found" errors.
-          const dbData = {
-            user_id: dbDataRaw.user_id,
-            date: dbDataRaw.date,
-            type: dbDataRaw.type,
-            amount: dbDataRaw.amount,
-            category: dbDataRaw.category,
-            document_type: dbDataRaw.document_type,
-            document_number: dbDataRaw.document_number,
-            client_name: dbDataRaw.client_name,
-            client_email: dbDataRaw.client_email,
-            service_description: dbDataRaw.service_description,
-            attachment_url: dbDataRaw.attachment_url
-          };
-
-          // 4. Insert into DB
-          const { error } = await supabase.from('transactions').insert([dbData]);
+          
+          const { error } = await supabase.from('transactions').insert([dbDataRaw]);
           if (error) throw error;
           
           await fetchTransactions();
@@ -1019,22 +847,7 @@ function App() {
       setLoading(true);
       try {
           const dbDataRaw = mapTransactionToDb(updatedTx);
-          
-          // Explicitly construct object to allow updates, preventing any schema issues
-          const dbData = {
-            date: dbDataRaw.date,
-            type: dbDataRaw.type,
-            amount: dbDataRaw.amount,
-            category: dbDataRaw.category,
-            document_type: dbDataRaw.document_type,
-            document_number: dbDataRaw.document_number,
-            client_name: dbDataRaw.client_name,
-            client_email: dbDataRaw.client_email,
-            service_description: dbDataRaw.service_description,
-            attachment_url: dbDataRaw.attachment_url
-          };
-
-          const { error } = await supabase.from('transactions').update(dbData).eq('id', updatedTx.id);
+          const { error } = await supabase.from('transactions').update(dbDataRaw).eq('id', updatedTx.id);
           if (error) throw error;
           await fetchTransactions();
       } catch (error: any) { alert(`Error updating: ${error.message}`); } finally { setLoading(false); }
@@ -1053,7 +866,6 @@ function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); setUser(null); };
 
-  // ... Effects for theme, font, currency ...
   useEffect(() => { localStorage.setItem('theme', theme); document.body.className = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : '') : (theme === 'dark' ? 'dark-theme' : ''); }, [theme]);
   useEffect(() => { localStorage.setItem('fontSize', fontSize); document.documentElement.style.fontSize = { small: '14px', medium: '16px', large: '18px' }[fontSize]; }, [fontSize]);
   useEffect(() => { localStorage.setItem('currency', currency); }, [currency]);
@@ -1062,7 +874,6 @@ function App() {
   const currencySymbol = useMemo(() => currencyMap[currency], [currency]);
   const locale = useMemo(() => languageToLocaleMap[language], [language]);
 
-  // Calculations
   const { dailyIncome, weeklyIncome, monthlyIncome, dailyExpenses, weeklyExpenses, monthlyExpenses, dailyTransactions, weeklyTransactions, monthlyTransactions } = useMemo(() => {
     const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
     const lists = { dailyTransactions: [] as Transaction[], weeklyTransactions: [] as Transaction[], monthlyTransactions: [] as Transaction[] };
@@ -1075,13 +886,12 @@ function App() {
     return {...totals, ...lists};
   }, [transactions]);
 
-  // --- RENDER GUARD: Configuration Error ---
   if (supabaseError) {
       return (
           <div className="app-container" style={{justifyContent: 'center', alignItems: 'center', padding: '20px', textAlign: 'center'}}>
-              <div style={{backgroundColor: '#fee2e2', color: '#991b1b', padding: '20px', borderRadius: '8px', border: '1px solid #f87171', maxWidth: '500px'}}>
-                  <h3 style={{marginBottom: '10px', fontSize: '1.2rem'}}>Configuration Error</h3>
-                  <p>{supabaseError}</p>
+              <div className="error-box">
+                  <h3>Configuration Error</h3>
+                  <p className="error-message">{supabaseError}</p>
               </div>
           </div>
       );
@@ -1143,4 +953,10 @@ function App() {
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
-root.render(<App />);
+root.render(
+    <React.StrictMode>
+        <ErrorBoundary>
+            <App />
+        </ErrorBoundary>
+    </React.StrictMode>
+);

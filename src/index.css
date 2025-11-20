@@ -59,6 +59,32 @@ html, body, #root {
   background-color: var(--bg-light);
 }
 
+/* Error Box Styles */
+.error-box {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #f87171;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-align: center;
+}
+
+.error-box h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.4rem;
+    color: #7f1d1d;
+}
+
+.error-message {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+
 /* Loading Spinner */
 .loading-spinner {
     position: fixed;
