@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useMemo, useRef, Component, ReactNode, ErrorInfo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, ReactNode, ErrorInfo, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient, Session } from '@supabase/supabase-js';
 import './index.css';
@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
