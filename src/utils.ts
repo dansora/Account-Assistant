@@ -1,6 +1,5 @@
 
 import { Currency, Language, DbTransaction, Transaction, DbProfile, User } from './types';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 
 export const currencyMap: Record<Currency, string> = { 'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹', };
 export const languageToLocaleMap: Record<Language, string> = { 'en': 'en-GB', 'ro': 'ro-RO' };
@@ -133,7 +132,7 @@ export const mapTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransact
     };
 };
 
-export const dbProfileToApp = (dbProfile: DbProfile, authUser: SupabaseUser): User => {
+export const dbProfileToApp = (dbProfile: DbProfile, authUser: User | any): User => {
     return {
         id: dbProfile.id,
         updatedAt: dbProfile.updated_at || undefined,

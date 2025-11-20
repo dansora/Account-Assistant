@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -74,6 +74,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
         console.error(supabaseError);
     }
 }
+
+// --- Constants ---
+const INCOME_CATEGORIES = ['Cash', 'Card', 'Bank Transfer', 'Other'];
+const EXPENSE_CATEGORIES = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
 
 // --- Components ---
 
@@ -404,9 +408,7 @@ const EditTransactionModal = ({ isOpen, onClose, onSubmit, transaction, t }: { i
     };
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (formData) onSubmit(formData); };
     
-    const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
-    const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
-    const categories = formData.type === 'income' ? incomeCategories : expenseCategories;
+    const categories = formData.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
     return (
         <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -555,7 +557,7 @@ const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod,
 const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const incomeCategories = ['Cash', 'Card', 'Bank Transfer', 'Other'];
+  // Categories are now passed as a constant from outside to avoid infinite render loop
   const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
   const currentTotal = period === 'daily' ? income : period === 'weekly' ? weeklyIncome : monthlyIncome;
   const title = t('income_breakdown', { period: t(period) });
@@ -575,7 +577,7 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
         <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
         <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
       </div>
-      <IncomeNumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addIncome(data); setIsModalOpen(false); }} title={t('add_income')} currencySymbol={currencySymbol} categories={incomeCategories} t={t} />
+      <IncomeNumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addIncome(data); setIsModalOpen(false); }} title={t('add_income')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
     </div>
   );
 };
@@ -583,7 +585,7 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
 const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: any) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-    const expenseCategories = ['Fuel', 'Repairs', 'Insurance', 'Rent', 'Phone', 'Subscriptions', 'Fees & Tolls', 'Other'];
+    // Categories are now passed as a constant from outside to avoid infinite render loop
     const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
     const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
     const title = t('expense_breakdown', { period: t(period) });
@@ -603,7 +605,7 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
             <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
             <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
         </div>
-        <ExpenseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addExpense(data); setIsModalOpen(false); }} title={t('add_expense')} currencySymbol={currencySymbol} categories={expenseCategories} t={t} />
+        <ExpenseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addExpense(data); setIsModalOpen(false); }} title={t('add_expense')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
       </div>
     );
 };
