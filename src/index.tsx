@@ -1,14 +1,14 @@
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import { createClient, Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { createClient, Session } from '@supabase/supabase-js';
 import './index.css';
 import { Transaction, User, AppView, Theme, FontSize, Currency, Language } from './types';
 import { currencyMap, languageToLocaleMap, translations, dateUtils, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile } from './utils';
 
 // --- Error Boundary Component ---
 interface ErrorBoundaryProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -16,14 +16,14 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 

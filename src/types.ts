@@ -1,6 +1,4 @@
 
-import { User as SupabaseUser } from '@supabase/supabase-js';
-
 export type DbTransaction = {
   id: number; user_id: string; created_at: string; date: string; type: 'income' | 'expense'; amount: number;
   category: string; document_type: 'receipt' | 'invoice' | null; document_number: string | null; client_name: string | null;
