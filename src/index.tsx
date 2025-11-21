@@ -1,4 +1,5 @@
-import React, { Component, useState, useCallback, useEffect, useMemo, useRef, ReactNode, ErrorInfo } from 'react';
+
+import React, { useState, useCallback, useEffect, useMemo, useRef, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient, Session } from '@supabase/supabase-js';
 import './index.css';
@@ -15,8 +16,11 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, error: null };
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -779,13 +783,16 @@ function App() {
     if (supabase) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
             if (isMounted.current) {
-                setSession(session);
-                if (session) {
-                    fetchUserData(session.user.id); 
-                } else {
-                    setUser(null);
-                    setTransactions([]);
-                }
+                setSession(currentSession => {
+                    // Only fetch data if session user ID changes to avoid re-fetching loop
+                    if (session?.user?.id && (!currentSession?.user?.id || currentSession.user.id !== session.user.id)) {
+                         fetchUserData(session.user.id);
+                    } else if (!session) {
+                         setUser(null);
+                         setTransactions([]);
+                    }
+                    return session;
+                });
             }
         });
         return () => {
@@ -906,6 +913,13 @@ function App() {
     return {...totals, ...lists};
   }, [transactions]);
 
+  // Stable Handlers to prevent child re-renders
+  const addIncomeHandler = useCallback((data: any) => addTransaction({ ...data, type: 'income' }), [addTransaction]);
+  const addExpenseHandler = useCallback((data: any) => addTransaction({ ...data, type: 'expense' }), [addTransaction]);
+  const setViewHandler = useCallback((p: any) => setView({ page: p }), []);
+  const onCardClickIncome = useCallback((p: any) => setView({ page: 'detail', transactionType: 'income', period: p }), []);
+  const onCardClickExpense = useCallback((p: any) => setView({ page: 'detail', transactionType: 'expense', period: p }), []);
+
   if (supabaseError) {
       return (
           <div className="app-container" style={{justifyContent: 'center', alignItems: 'center', padding: '20px', textAlign: 'center'}}>
@@ -940,11 +954,11 @@ function App() {
       }
     }
     switch (page) {
-      case 'income': return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={(data: any) => addTransaction({ ...data, type: 'income' })} onCardClick={(p: any) => setView({ page: 'detail', transactionType: 'income', period: p })} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
-      case 'expense': return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={(data: any) => addTransaction({ ...data, type: 'expense' })} onCardClick={(p: any) => setView({ page: 'detail', transactionType: 'expense', period: p })} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
+      case 'income': return <IncomePage income={dailyIncome} weeklyIncome={weeklyIncome} monthlyIncome={monthlyIncome} addIncome={addIncomeHandler} onCardClick={onCardClickIncome} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
+      case 'expense': return <ExpensePage expenses={dailyExpenses} weeklyExpenses={weeklyExpenses} monthlyExpenses={monthlyExpenses} addExpense={addExpenseHandler} onCardClick={onCardClickExpense} currencySymbol={currencySymbol} dailyTransactions={dailyTransactions} weeklyTransactions={weeklyTransactions} monthlyTransactions={monthlyTransactions} locale={locale} t={t} />;
       case 'settings': return <SettingsPage theme={theme} onThemeChange={setTheme} currency={currency} onCurrencyChange={setCurrency} fontSize={fontSize} onFontSizeChange={setFontSize} language={language} onLanguageChange={setLanguage} onLogout={handleLogout} t={t} />;
       case 'tax': return <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t} />;
-      case 'main': default: return <MainPage income={mainViewPeriod === 'weekly' ? weeklyIncome : (mainViewPeriod === 'monthly' ? monthlyIncome : dailyIncome)} expenses={mainViewPeriod === 'weekly' ? weeklyExpenses : (mainViewPeriod === 'monthly' ? monthlyExpenses : dailyExpenses)} onNavClick={(p: any) => setView({ page: p })} currencySymbol={currencySymbol} currentPeriod={mainViewPeriod} onPeriodChange={setMainViewPeriod} locale={locale} t={t} />;
+      case 'main': default: return <MainPage income={mainViewPeriod === 'weekly' ? weeklyIncome : (mainViewPeriod === 'monthly' ? monthlyIncome : dailyIncome)} expenses={mainViewPeriod === 'weekly' ? weeklyExpenses : (mainViewPeriod === 'monthly' ? monthlyExpenses : dailyExpenses)} onNavClick={setViewHandler} currencySymbol={currencySymbol} currentPeriod={mainViewPeriod} onPeriodChange={setMainViewPeriod} locale={locale} t={t} />;
     }
   };
 
@@ -965,7 +979,7 @@ function App() {
          </div>
       </header>
       <main ref={mainRef}>{renderPage()}</main>
-      <Footer currentPage={view.page} onNavClick={(p: any) => setView({ page: p })} t={t} />
+      <Footer currentPage={view.page} onNavClick={setViewHandler} t={t} />
       {docViewerTx && <DocumentViewerModal transaction={docViewerTx} user={user} currencySymbol={currencySymbol} onClose={() => setDocViewerTx(null)} t={t} />}
       {editTx && <EditTransactionModal isOpen={!!editTx} transaction={editTx} onClose={() => setEditTx(null)} onSubmit={(tx) => { updateTransaction(tx); setEditTx(null); }} t={t} />}
     </div>
