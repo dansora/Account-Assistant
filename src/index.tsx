@@ -155,7 +155,8 @@ const ExpensePage = React.memo(({ expenses, addExpense, transactions, period, se
 });
 
 const ProfilePage = React.memo(({ user, onUpdate, onLogout, t }: any) => {
-    const [data, setData] = useState<User>(user || {});
+    // Cast empty object to User type to satisfy strict TypeScript check
+    const [data, setData] = useState<User>((user || {}) as User);
     const handleChange = (e: any) => setData(p => ({ ...p, [e.target.id]: e.target.value }));
     return ( <div className="page-content"><h2>{t('profile')}</h2><form className="profile-form" onSubmit={e => { e.preventDefault(); onUpdate(data); }}>
         <div className="form-field"><label>{t('full_name')}</label><input id="fullName" value={data.fullName||''} onChange={handleChange} /></div>
