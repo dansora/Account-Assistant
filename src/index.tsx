@@ -65,7 +65,8 @@ const CameraModal = React.memo(({ isOpen, onClose, onCapture, t }: { isOpen: boo
     return ( <div className="camera-modal-overlay"><div className="camera-modal-content"><video ref={videoRef} autoPlay playsInline muted /><div className="camera-controls"><button onClick={handleCapture} className="capture-button">{t('capture')}</button><button onClick={onClose} className="cancel-button">{t('cancel')}</button></div></div></div> );
 });
 
-const ExpenseModal = React.memo(({ onClose, onSubmit, title, currencySymbol, categories, t }: any) => {
+const ExpenseModal = React.memo(({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: any) => {
+    if (!isOpen) return null;
     const [amount, setAmount] = useState(''); const [cat, setCat] = useState(categories?.[0] || 'Other'); const [desc, setDesc] = useState(''); const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState<string | null>(null); const [camOpen, setCamOpen] = useState(false); const [bucket, setBucket] = useState<'receipts'|'invoices'|null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) { setFile(f); setBucket('invoices'); if (f.type.startsWith('image/')) fileToBase64(f).then(setPreview); else setPreview(f.name); } };
@@ -85,7 +86,8 @@ const ExpenseModal = React.memo(({ onClose, onSubmit, title, currencySymbol, cat
     </> );
 });
 
-const IncomeNumpadModal = React.memo(({ onClose, onSubmit, title, currencySymbol, categories, t }: any) => {
+const IncomeNumpadModal = React.memo(({ isOpen, onClose, onSubmit, title, currencySymbol, categories, t }: any) => {
+    if (!isOpen) return null;
     const [val, setVal] = useState(''); const [cat, setCat] = useState(categories?.[0] || 'Other'); const [docType, setDocType] = useState('none'); const [extra, setExtra] = useState({ cName: '', cEmail: '', desc: '', link: '' });
     const handleNum = (k: string) => { if (k === '.' && val.includes('.')) return; setVal(val + k); };
     return ( <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><div className="modal-header"><h3>{title}</h3><button onClick={onClose} className="close-button">&times;</button></div>
