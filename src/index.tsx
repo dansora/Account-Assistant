@@ -1,10 +1,9 @@
-
 import React, { useState, useCallback, useEffect, useMemo, useRef, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient, Session } from '@supabase/supabase-js';
 import './index.css';
-import { Transaction, User, AppView, Theme, FontSize, Currency, Language } from './types';
-import { currencyMap, languageToLocaleMap, translations, dateUtils, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals } from './utils';
+import { Transaction, User, AppView, Theme, Currency, Language } from './types';
+import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals } from './utils';
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps { children?: ReactNode; }
