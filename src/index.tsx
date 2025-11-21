@@ -112,7 +112,7 @@ const AuthPage = React.memo(({ t }: { t: (k: string) => string }) => {
     const handleAuth = async (e: React.FormEvent) => { e.preventDefault(); setMsg({ type: '', text: '' });
         if (!supabase) { setMsg({ type: 'error', text: 'Supabase not configured.' }); return; }
         const { error } = isLogin ? await supabase.auth.signInWithPassword({ email, password: pass }) : await supabase.auth.signUp({ email, password: pass });
-        if (error) setMsg({ type: 'error', text: error.message }); else if (!isLogin) setMsg({ type: 'success', text: t('check_email_confirmation') });
+        if (error) { console.error('Auth Error:', error); setMsg({ type: 'error', text: error.message }); } else if (!isLogin) setMsg({ type: 'success', text: t('check_email_confirmation') });
     };
     return ( <div className="auth-container"><div className="auth-box"><h2 className="auth-title">{t(isLogin ? 'login' : 'signup')}</h2>
         {msg.text && <div className={`auth-${msg.type}`}>{msg.text}</div>}
@@ -133,7 +133,7 @@ const MainPage = React.memo(({ income, expenses, currencySymbol, period, setPeri
             <div className="income-card-styled expense clickable" onClick={() => onNav('expense')}><div className="card-label"><h3>{t('expense')}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div></div>
             <div className="income-card-styled balance"><div className="card-label"><h3>{t('balance')}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{(income - expenses).toFixed(2)}</p></div></div>
         </div>
-        <div className="period-selector">{['daily', 'weekly', 'monthly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
+        <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
     </div>
 ));
 
@@ -143,7 +143,7 @@ const IncomePage = React.memo(({ income, addIncome, transactions, period, setPer
     return ( <div className="page-content"><CurrentDateTime locale={locale} /><h2>{t('income')}</h2><button className="action-button" onClick={() => setOpen(true)}>{t('add_income')}</button>
         <div className="cards-list"><div className="income-card-styled income"><div className="card-label"><h3>{t(period)}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{income.toFixed(2)}</p></div></div></div>
         <div className="category-breakdown-container"><h3>{t('income_breakdown').replace('{period}', t(period))}</h3><ul className="category-list">{breakdown.map((i: any) => <li key={i.category} className="category-item"><div className="category-info"><span className="category-name">{i.category}</span><span className="category-amount amount income">{currencySymbol}{i.amount.toFixed(2)}</span></div><div className="progress-bar-container"><div className="progress-bar income" style={{ width: `${i.percentage}%` }}></div></div><span className="category-percentage">{i.percentage.toFixed(1)}%</span></li>)}</ul></div>
-        <div className="period-selector">{['daily', 'weekly', 'monthly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
+        <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
         <IncomeNumpadModal key={open ? 'open' : 'closed'} isOpen={open} onClose={() => setOpen(false)} onSubmit={(d: any) => { addIncome(d); setOpen(false); }} title={t('add_income')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
     </div> );
 });
@@ -154,7 +154,7 @@ const ExpensePage = React.memo(({ expenses, addExpense, transactions, period, se
     return ( <div className="page-content"><CurrentDateTime locale={locale} /><h2>{t('expense')}</h2><button className="action-button expense" onClick={() => setOpen(true)}>{t('add_expense')}</button>
         <div className="cards-list"><div className="income-card-styled expense"><div className="card-label"><h3>{t(period)}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div></div></div>
         <div className="category-breakdown-container"><h3>{t('expense_breakdown').replace('{period}', t(period))}</h3><ul className="category-list">{breakdown.map((i: any) => <li key={i.category} className="category-item"><div className="category-info"><span className="category-name">{i.category}</span><span className="category-amount amount expense">{currencySymbol}{i.amount.toFixed(2)}</span></div><div className="progress-bar-container"><div className="progress-bar expense" style={{ width: `${i.percentage}%` }}></div></div><span className="category-percentage">{i.percentage.toFixed(1)}%</span></li>)}</ul></div>
-        <div className="period-selector">{['daily', 'weekly', 'monthly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
+        <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
         <ExpenseModal key={open ? 'open' : 'closed'} isOpen={open} onClose={() => setOpen(false)} onSubmit={(d: any) => { addExpense(d); setOpen(false); }} title={t('add_expense')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
     </div> );
 });
@@ -188,7 +188,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
   const [currency, setCurrency] = useState<Currency>(() => (localStorage.getItem('currency') as Currency) || 'GBP');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
-  const [period, setPeriod] = useState<'daily'|'weekly'|'monthly'>('daily');
+  const [period, setPeriod] = useState<'daily'|'weekly'|'monthly'|'yearly'>('daily');
   const isMounted = useRef(true);
 
   const t = useCallback((k: string) => translations[k]?.[lang] || k, [lang]);
@@ -238,8 +238,14 @@ function App() {
       }
       delete newTx.file; delete newTx.bucket;
       const { data, error } = await supabase.from('transactions').insert(mapTransactionToDb(newTx)).select().single();
-      if (!error && data) setTransactions(p => [dbTransactionToApp(data), ...p]);
-      else if (!error) fetchTransactions(); 
+      if (error) { 
+          console.error('Error saving transaction:', error); 
+          alert('Failed to save transaction: ' + error.message);
+      } else if (data) {
+          setTransactions(p => [dbTransactionToApp(data), ...p]);
+      } else {
+          fetchTransactions();
+      }
   }, [user, view.page, fetchTransactions]);
 
   const updateUser = useCallback(async (updatedUser: User) => {

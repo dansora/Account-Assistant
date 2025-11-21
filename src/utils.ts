@@ -6,7 +6,7 @@ export const languageToLocaleMap: Record<Language, string> = { 'en': 'en-GB', 'r
 
 export const translations: Record<string, Record<Language, string>> = {
   income: { en: 'Income', ro: 'Venit' }, expense: { en: 'Expense', ro: 'Cheltuială' }, balance: { en: 'Balance', ro: 'Balanță' },
-  daily: { en: 'Daily', ro: 'Zilnic' }, weekly: { en: 'Weekly', ro: 'Săptămânal' }, monthly: { en: 'Monthly', ro: 'Lunar' },
+  daily: { en: 'Daily', ro: 'Zilnic' }, weekly: { en: 'Weekly', ro: 'Săptămânal' }, monthly: { en: 'Monthly', ro: 'Lunar' }, yearly: { en: 'Yearly', ro: 'Anual' },
   back: { en: 'Back', ro: 'Înapoi' }, week: { en: 'Week', ro: 'Săptămâna'},
   welcome: { en: 'Welcome to Account Assistant', ro: 'Bun venit la Asistentul Contabil' }, slogan: { en: 'Your Accountancy Assistant for MTD', ro: 'Asistentul tău Contabil pentru MTD' },
   home: { en: 'Home', ro: 'Acasă' }, tax: { en: 'Tax', ro: 'Taxe' }, settings: { en: 'Settings', ro: 'Setări' }, dashboard: { en: 'Dashboard', ro: 'Panou de control' },
@@ -79,6 +79,7 @@ export const dateUtils = {
   isToday: (date: Date) => { const today = new Date(); return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); },
   isThisWeek: (date: Date) => { const today = new Date(); const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1))); firstDayOfWeek.setHours(0, 0, 0, 0); const lastDayOfWeek = new Date(firstDayOfWeek); lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6); lastDayOfWeek.setHours(23, 59, 59, 999); return date >= firstDayOfWeek && date <= lastDayOfWeek; },
   isThisMonth: (date: Date) => { const today = new Date(); return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); },
+  isThisYear: (date: Date) => { const today = new Date(); return date.getFullYear() === today.getFullYear(); },
   getWeekOfMonth: (date: Date) => { const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay(); const offsetDate = date.getDate() + firstDayOfMonth - 1; return Math.floor(offsetDate / 7) + 1; }
 };
 
@@ -174,8 +175,16 @@ export const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updat
 };
 
 export const calculatePeriodTotals = (transactions: Transaction[]) => {
-    const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
-    const lists = { dailyTransactions: [] as Transaction[], weeklyTransactions: [] as Transaction[], monthlyTransactions: [] as Transaction[] };
+    const totals = { 
+        dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, yearlyIncome: 0,
+        dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0, yearlyExpenses: 0
+    };
+    const lists = { 
+        dailyTransactions: [] as Transaction[], 
+        weeklyTransactions: [] as Transaction[], 
+        monthlyTransactions: [] as Transaction[],
+        yearlyTransactions: [] as Transaction[]
+    };
     
     transactions.forEach(tx => {
       const date = new Date(tx.date);
@@ -190,6 +199,10 @@ export const calculatePeriodTotals = (transactions: Transaction[]) => {
       if (dateUtils.isThisMonth(date)) { 
           lists.monthlyTransactions.push(tx); 
           if (tx.type === 'income') totals.monthlyIncome += tx.amount; else totals.monthlyExpenses += tx.amount; 
+      }
+      if (dateUtils.isThisYear(date)) {
+          lists.yearlyTransactions.push(tx);
+          if (tx.type === 'income') totals.yearlyIncome += tx.amount; else totals.yearlyExpenses += tx.amount;
       }
     });
     return { ...totals, ...lists };
