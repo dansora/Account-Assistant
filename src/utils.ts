@@ -172,3 +172,25 @@ export const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updat
         iban_code: appUser.iban || null,
     };
 };
+
+export const calculatePeriodTotals = (transactions: Transaction[]) => {
+    const totals = { dailyIncome: 0, weeklyIncome: 0, monthlyIncome: 0, dailyExpenses: 0, weeklyExpenses: 0, monthlyExpenses: 0 };
+    const lists = { dailyTransactions: [] as Transaction[], weeklyTransactions: [] as Transaction[], monthlyTransactions: [] as Transaction[] };
+    
+    transactions.forEach(tx => {
+      const date = new Date(tx.date);
+      if (dateUtils.isToday(date)) { 
+          lists.dailyTransactions.push(tx); 
+          if (tx.type === 'income') totals.dailyIncome += tx.amount; else totals.dailyExpenses += tx.amount; 
+      }
+      if (dateUtils.isThisWeek(date)) { 
+          lists.weeklyTransactions.push(tx); 
+          if (tx.type === 'income') totals.weeklyIncome += tx.amount; else totals.weeklyExpenses += tx.amount; 
+      }
+      if (dateUtils.isThisMonth(date)) { 
+          lists.monthlyTransactions.push(tx); 
+          if (tx.type === 'income') totals.monthlyIncome += tx.amount; else totals.monthlyExpenses += tx.amount; 
+      }
+    });
+    return { ...totals, ...lists };
+};
