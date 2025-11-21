@@ -15,7 +15,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -214,12 +214,12 @@ const ExpenseModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, catego
         }
     };
     
-    const handlePhotoCapture = (capturedFile: File) => {
+    const handlePhotoCapture = useCallback((capturedFile: File) => {
         setFile(capturedFile);
         setAttachmentBucket('receipts');
         fileToBase64(capturedFile).then(setFilePreview);
         setIsCameraOpen(false);
-    };
+    }, []);
 
     const removeFile = () => {
         setFile(null);
@@ -242,6 +242,8 @@ const ExpenseModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, catego
         }
     };
     
+    const closeCamera = useCallback(() => setIsCameraOpen(false), []);
+
     if (!isOpen) return null;
 
     return (
@@ -278,7 +280,7 @@ const ExpenseModal = ({ isOpen, onClose, onSubmit, title, currencySymbol, catego
                     </form>
                 </div>
             </div>
-            <CameraModal isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handlePhotoCapture} t={t} />
+            <CameraModal isOpen={isCameraOpen} onClose={closeCamera} onCapture={handlePhotoCapture} t={t} />
         </>
     );
 };
@@ -559,10 +561,11 @@ const MainPage = ({ income, expenses, onNavClick, currencySymbol, currentPeriod,
 const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: any) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  // Categories are now passed as a constant from outside to avoid infinite render loop
   const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
   const currentTotal = period === 'daily' ? income : period === 'weekly' ? weeklyIncome : monthlyIncome;
   const title = t('income_breakdown', { period: t(period) });
+  const handleAddIncome = useCallback((data: any) => { addIncome(data); setIsModalOpen(false); }, [addIncome]);
+  
   return (
     <div className="page-content">
       <CurrentDateTime locale={locale} />
@@ -579,7 +582,7 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
         <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
         <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
       </div>
-      <IncomeNumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addIncome(data); setIsModalOpen(false); }} title={t('add_income')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
+      <IncomeNumpadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddIncome} title={t('add_income')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
     </div>
   );
 };
@@ -587,10 +590,11 @@ const IncomePage = ({ income, weeklyIncome, monthlyIncome, addIncome, onCardClic
 const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, onCardClick, currencySymbol, dailyTransactions, weeklyTransactions, monthlyTransactions, locale, t }: any) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-    // Categories are now passed as a constant from outside to avoid infinite render loop
     const currentTransactions = period === 'daily' ? dailyTransactions : period === 'weekly' ? weeklyTransactions : monthlyTransactions;
     const currentTotal = period === 'daily' ? expenses : period === 'weekly' ? weeklyExpenses : monthlyExpenses;
     const title = t('expense_breakdown', { period: t(period) });
+    const handleAddExpense = useCallback((data: any) => { addExpense(data); setIsModalOpen(false); }, [addExpense]);
+
     return (
       <div className="page-content">
         <CurrentDateTime locale={locale} />
@@ -607,7 +611,7 @@ const ExpensePage = ({ expenses, weeklyExpenses, monthlyExpenses, addExpense, on
             <button onClick={() => setPeriod('weekly')} className={period === 'weekly' ? 'active' : ''}>{t('weekly')}</button>
             <button onClick={() => setPeriod('monthly')} className={period === 'monthly' ? 'active' : ''}>{t('monthly')}</button>
         </div>
-        <ExpenseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={(data) => { addExpense(data); setIsModalOpen(false); }} title={t('add_expense')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
+        <ExpenseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddExpense} title={t('add_expense')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
       </div>
     );
 };
@@ -665,7 +669,8 @@ const TaxPage = ({ transactions, currencySymbol, t }: any) => {
     const [startDate, setStartDate] = useState<Date | null>(null); const [endDate, setEndDate] = useState<Date | null>(null); const [isCalendarOpen, setCalendarOpen] = useState<'start' | 'end' | null>(null); const [reportReady, setReportReady] = useState(false);
     const reportData = useMemo(() => {
         if (!startDate || !endDate || endDate < startDate) return null;
-        const start = new Date(startDate.setHours(0, 0, 0, 0)); const end = new Date(endDate.setHours(23, 59, 59, 999));
+        const start = new Date(startDate); start.setHours(0, 0, 0, 0); 
+        const end = new Date(endDate); end.setHours(23, 59, 59, 999);
         const filtered = transactions.filter((tx: Transaction) => { const txDate = new Date(tx.date); return txDate >= start && txDate <= end; });
         const totals = filtered.reduce((acc: any, tx: Transaction) => { if (tx.type === 'income') acc.income += tx.amount; else acc.expense += tx.amount; return acc; }, { income: 0, expense: 0 });
         return { transactions: filtered, totalIncome: totals.income, totalExpense: totals.expense, balance: totals.income - totals.expense, };
@@ -690,7 +695,7 @@ const TaxPage = ({ transactions, currencySymbol, t }: any) => {
 const HomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>;
 const IncomeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M13 19V7.83l4.59 4.58L19 11l-7-7-7 7 1.41 1.41L11 7.83V19h2z"/></svg>;
 const ExpenseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M11 5v11.17l-4.59-4.58L5 13l7 7 7-7-1.41-1.41L13 16.17V5h-2z"/></svg>;
-const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
+const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.22-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>;
 const TaxIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 11h-2v2H9v-2H7v-2h2V9h2v2h2v2zm4-6V3.5L18.5 9H13z"/></svg>;
 const Footer = ({ currentPage, onNavClick, t }: any) => {
   const navItems = [ { page: 'main', label: t('home'), icon: <HomeIcon /> }, { page: 'income', label: t('income'), icon: <IncomeIcon /> }, { page: 'expense', label: t('expense'), icon: <ExpenseIcon /> }, { page: 'tax', label: t('tax'), icon: <TaxIcon /> }, { page: 'settings', label: t('settings'), icon: <SettingsIcon /> }, ];
