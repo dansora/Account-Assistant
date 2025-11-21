@@ -110,27 +110,32 @@ export const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
     };
 };
 
-export const mapTransactionToDb = (appTx: Partial<Transaction>): Omit<DbTransaction, 'id' | 'created_at' | 'user_id'> & { user_id?: string } => {
+export const mapTransactionToDb = (appTx: Partial<Transaction>): any => {
     const paymentLinkMarker = '[PAYMENT_LINK]';
     let serviceDescription = appTx.serviceDescription || '';
     if (appTx.paymentLink) {
         serviceDescription = `${serviceDescription} ${paymentLinkMarker}${appTx.paymentLink}`;
     }
 
-    return {
+    const dbTx: any = {
         user_id: appTx.userId, 
-        date: appTx.date!, 
-        type: appTx.type!, 
-        amount: appTx.amount!, 
-        category: appTx.category!,
-        document_type: appTx.documentType || null, 
-        document_number: appTx.documentNumber || null, 
-        client_name: appTx.clientName || null,
-        client_email: appTx.clientEmail || null,
-        service_description: serviceDescription.trim() || null,
-        attachment_url: appTx.attachmentUrl || null,
-        attachment_bucket: appTx.attachmentBucket || null,
+        date: appTx.date, 
+        type: appTx.type, 
+        amount: appTx.amount, 
+        category: appTx.category,
     };
+
+    // Conditionally add properties only if they are defined.
+    // This prevents sending null values for columns that might not exist in the DB schema yet.
+    if (appTx.documentType) dbTx.document_type = appTx.documentType;
+    if (appTx.documentNumber) dbTx.document_number = appTx.documentNumber;
+    if (appTx.clientName) dbTx.client_name = appTx.clientName;
+    if (appTx.clientEmail) dbTx.client_email = appTx.clientEmail;
+    if (serviceDescription.trim()) dbTx.service_description = serviceDescription.trim();
+    if (appTx.attachmentUrl) dbTx.attachment_url = appTx.attachmentUrl;
+    if (appTx.attachmentBucket) dbTx.attachment_bucket = appTx.attachmentBucket;
+
+    return dbTx;
 };
 
 export const dbProfileToApp = (dbProfile: DbProfile, authUser: User | any): User => {
