@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -104,7 +105,7 @@ const IncomeNumpadModal = React.memo(({ onClose, onSubmit, title, currencySymbol
 });
 
 // --- Pages ---
-const AuthPage = React.memo(({ onLogin, t }: any) => {
+const AuthPage = React.memo(({ t }: { t: (k: string) => string }) => {
     const [isLogin, setIsLogin] = useState(true); const [email, setEmail] = useState(''); const [pass, setPass] = useState(''); const [msg, setMsg] = useState({ type: '', text: '' });
     const handleAuth = async (e: React.FormEvent) => { e.preventDefault(); setMsg({ type: '', text: '' });
         if (!supabase) { setMsg({ type: 'error', text: 'Supabase not configured.' }); return; }
@@ -250,7 +251,7 @@ function App() {
   const currentTransactions = useMemo(() => totals[`${period}Transactions` as keyof typeof totals] as Transaction[], [totals, period]);
 
   if (!supabase) return <div className="app-container"><div className="error-box"><h3>Configuration Error</h3><p>Supabase not configured.</p></div></div>;
-  if (!session) return <AuthPage onLogin={() => {}} t={t} />;
+  if (!session) return <AuthPage t={t} />;
 
   return (
     <ErrorBoundary>
