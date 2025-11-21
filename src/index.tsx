@@ -703,6 +703,7 @@ const Footer = ({ currentPage, onNavClick, t }: any) => {
 
 function App() {
   const mainRef = useRef<HTMLElement>(null);
+  const isMounted = useRef(true);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<AppView>({ page: 'main' });
@@ -725,24 +726,51 @@ function App() {
       return text;
   }, [language]);
 
-  useEffect(() => {
-    let mounted = true;
+  const fetchTransactions = useCallback(async () => {
+      if (!supabase) return;
+      const { data, error } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (error) console.error('Error fetching transactions:', error);
+      else if (data && isMounted.current) setTransactions(data.map(dbTransactionToApp));
+  }, []);
 
+  const fetchUserData = useCallback(async (userId: string) => {
+      if (!supabase) return;
+      if (isMounted.current) setLoading(true);
+      try {
+          let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+          if (error && error.code === 'PGRST116') {
+               const { data: newProfile, error: createError } = await supabase.from('profiles').insert([{ id: userId }]).select().single();
+               if (createError) throw createError;
+               profile = newProfile;
+          } else if (error) throw error;
+          
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser && profile && isMounted.current) setUser(dbProfileToApp(profile, authUser));
+          await fetchTransactions();
+      } catch (err: any) {
+          console.error('Error fetching user data:', err);
+      } finally { 
+          if (isMounted.current) setLoading(false); 
+      }
+  }, [fetchTransactions]);
+
+  useEffect(() => {
+    isMounted.current = true;
     const initAuth = async () => {
       if (!supabase) {
-          if (mounted) setIsInitializing(false);
+          if (isMounted.current) setIsInitializing(false);
           return;
       }
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (mounted) {
+        if (isMounted.current) {
             setSession(session);
             if (session) await fetchUserData(session.user.id);
         }
       } catch (error) {
         console.error("Auth init error", error);
       } finally {
-        if (mounted) setIsInitializing(false);
+        if (isMounted.current) setIsInitializing(false);
       }
     };
 
@@ -750,7 +778,7 @@ function App() {
 
     if (supabase) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-            if (mounted) {
+            if (isMounted.current) {
                 setSession(session);
                 if (session) {
                     fetchUserData(session.user.id); 
@@ -761,39 +789,15 @@ function App() {
             }
         });
         return () => {
-            mounted = false;
+            isMounted.current = false;
             subscription.unsubscribe();
         };
     } else {
-        mounted = false;
+        isMounted.current = false;
     }
-  }, []);
+  }, [fetchUserData]);
 
-  const fetchUserData = async (userId: string) => {
-      setLoading(true);
-      try {
-          let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-          if (error && error.code === 'PGRST116') {
-               const { data: newProfile, error: createError } = await supabase.from('profiles').insert([{ id: userId }]).select().single();
-               if (createError) throw createError;
-               profile = newProfile;
-          } else if (error) throw error;
-          
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser && profile) setUser(dbProfileToApp(profile, authUser));
-          await fetchTransactions();
-      } catch (err: any) {
-          console.error('Error fetching user data:', err);
-      } finally { setLoading(false); }
-  };
-
-  const fetchTransactions = async () => {
-      const { data, error } = await supabase.from('transactions').select('*').order('date', { ascending: false });
-      if (error) console.error('Error fetching transactions:', error);
-      else if (data) setTransactions(data.map(dbTransactionToApp));
-  };
-
-  const addTransaction = async (data: { 
+  const addTransaction = useCallback(async (data: { 
       amount: number; 
       category: string; 
       type: 'income' | 'expense';
@@ -802,8 +806,8 @@ function App() {
       description?: string; 
       serviceDescription?: string; 
   }) => {
-      if (!session?.user) return;
-      setLoading(true);
+      if (!session?.user || !supabase) return;
+      if (isMounted.current) setLoading(true);
       try {
           let attachmentUrl = null;
           if (data.file && data.bucket) {
@@ -845,32 +849,42 @@ function App() {
           console.error("Add Transaction Error:", error);
           alert(`Error saving transaction: ${error.message}`);
       } finally {
-          setLoading(false);
+          if (isMounted.current) setLoading(false);
       }
-  };
+  }, [session, fetchTransactions]);
 
-  const updateTransaction = async (updatedTx: Transaction) => {
-      setLoading(true);
+  const updateTransaction = useCallback(async (updatedTx: Transaction) => {
+      if (!supabase) return;
+      if (isMounted.current) setLoading(true);
       try {
           const dbDataRaw = mapTransactionToDb(updatedTx);
           const { error } = await supabase.from('transactions').update(dbDataRaw).eq('id', updatedTx.id);
           if (error) throw error;
           await fetchTransactions();
-      } catch (error: any) { alert(`Error updating: ${error.message}`); } finally { setLoading(false); }
-  };
+      } catch (error: any) { alert(`Error updating: ${error.message}`); } finally { if (isMounted.current) setLoading(false); }
+  }, [fetchTransactions]);
 
-  const updateUser = async (updatedUser: User) => {
-      setLoading(true);
+  const updateUser = useCallback(async (updatedUser: User) => {
+      if (!supabase) return;
+      if (isMounted.current) setLoading(true);
       try {
           const dbProfile = appUserToDbProfile(updatedUser);
           const { error } = await supabase.from('profiles').update({ ...dbProfile, updated_at: new Date().toISOString() }).eq('id', updatedUser.id);
           if (error) throw error;
-          setUser(updatedUser);
-          alert('Profile updated successfully');
-      } catch (error: any) { alert(`Error updating profile: ${error.message}`); } finally { setLoading(false); }
-  };
+          if (isMounted.current) {
+              setUser(updatedUser);
+              alert('Profile updated successfully');
+          }
+      } catch (error: any) { alert(`Error updating profile: ${error.message}`); } finally { if (isMounted.current) setLoading(false); }
+  }, []);
 
-  const handleLogout = async () => { await supabase.auth.signOut(); setSession(null); setUser(null); };
+  const handleLogout = useCallback(async () => { 
+      if (supabase) await supabase.auth.signOut(); 
+      if (isMounted.current) {
+          setSession(null); 
+          setUser(null); 
+      }
+  }, []);
 
   useEffect(() => { localStorage.setItem('theme', theme); document.body.className = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : '') : (theme === 'dark' ? 'dark-theme' : ''); }, [theme]);
   useEffect(() => { localStorage.setItem('fontSize', fontSize); document.documentElement.style.fontSize = { small: '14px', medium: '16px', large: '18px' }[fontSize]; }, [fontSize]);
