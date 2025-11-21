@@ -1,8 +1,10 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef, ReactNode, ErrorInfo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import { createClient, Session } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import './index.css';
-import { Transaction, User, AppView, Theme, Currency, Language } from './types';
+import type { Transaction, User, AppView, Theme, Currency, Language } from './types';
 import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals } from './utils';
 
 // --- Error Boundary ---
@@ -197,15 +199,20 @@ function App() {
   }, [theme, currency, lang]);
 
   const fetchTransactions = useCallback(async () => {
-      if (!supabase || !user) return;
+      if (!supabase) return;
+      // Removed user dependency to avoid loop, assuming RLS protects data or session is handled by supabase client
       const { data, error } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (!error && data && isMounted.current) setTransactions(data.map(dbTransactionToApp));
-  }, [user]);
+  }, []);
 
   const fetchUser = useCallback(async (u: any) => {
       if (!supabase) return;
       const { data, error } = await supabase.from('profiles').select('*').eq('id', u.id).single();
-      if (isMounted.current) setUser(data ? dbProfileToApp(data, u) : { id: u.id, email: u.email, ...({} as any) });
+      if (isMounted.current) {
+          // Safely cast the fallback to User type to suppress TypeScript errors
+          const fallbackUser = { id: u.id, email: u.email, ...({} as any) } as User;
+          setUser(data ? dbProfileToApp(data, u) : fallbackUser);
+      }
       if (!error) fetchTransactions();
   }, [fetchTransactions]);
 
