@@ -46,21 +46,6 @@ const CurrentDateTime = React.memo(({ locale }: { locale: string }) => {
     return (<div className="current-datetime"><p>{dateTime.toLocaleString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p></div>);
 });
 
-const CalendarModal = React.memo(({ isOpen, onClose, onSelectDate }: { isOpen: boolean; onClose: () => void; onSelectDate: (date: Date) => void; }) => {
-    const [currentDate, setCurrentDate] = useState(new Date());
-    if (!isOpen) return null;
-    const renderCalendar = () => {
-        const year = currentDate.getFullYear(); const month = currentDate.getMonth(); const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const days = Array.from({ length: firstDay }, (_, i) => <div key={`empty-${i}`} className="calendar-day empty"></div>);
-        for (let i = 1; i <= daysInMonth; i++) { const d = new Date(year, month, i); days.push(<button key={i} className="calendar-day" onClick={() => { onSelectDate(d); onClose(); }}>{i}</button>); }
-        return days;
-    };
-    return ( <div className="modal-overlay" onClick={onClose}><div className="modal-content calendar-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="calendar-header"><button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt;</button><span>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>&gt;</button></div>
-        <div className="calendar-grid"><div className="calendar-day-name">Su</div><div className="calendar-day-name">Mo</div><div className="calendar-day-name">Tu</div><div className="calendar-day-name">We</div><div className="calendar-day-name">Th</div><div className="calendar-day-name">Fr</div><div className="calendar-day-name">Sa</div>{renderCalendar()}</div>
-    </div></div> );
-});
-
 const CameraModal = React.memo(({ isOpen, onClose, onCapture, t }: { isOpen: boolean; onClose: () => void; onCapture: (file: File) => void; t: (k: string) => string }) => {
     const videoRef = useRef<HTMLVideoElement>(null); const streamRef = useRef<MediaStream | null>(null);
     useEffect(() => {
@@ -113,33 +98,6 @@ const IncomeNumpadModal = React.memo(({ onClose, onSubmit, title, currencySymbol
             </div>}
         </div>
         <button onClick={() => { const a = parseFloat(val); if (a>0) onSubmit({ amount: a, category: cat, documentType: docType==='none'?undefined:docType, clientName: extra.cName, clientEmail: extra.cEmail, serviceDescription: extra.desc, paymentLink: extra.link }); }} className="numpad-enter-button">{t('enter')}</button>
-    </div></div> );
-});
-
-const DocumentViewerModal = React.memo(({ transaction: tx, user, currencySymbol, onClose, t }: any) => {
-    if (!tx || !user) return null;
-    const vat = user.vatRate > 0 ? (tx.amount / (1 + user.vatRate / 100)) * (user.vatRate / 100) : 0;
-    return ( <div className="modal-overlay" onClick={onClose}><div className="modal-content doc-viewer-modal-content" onClick={e => e.stopPropagation()}>
-        <div className="doc-viewer-header"><button onClick={onClose} className="close-button">&times;</button></div>
-        <div className="doc-viewer-body"><header className="doc-header">{user.avatar && <img src={user.avatar} className="company-logo" alt="logo" />}<div><h1>{t(tx.documentType)}</h1><p>#{tx.documentNumber}</p></div><div><h2>{user.companyName}</h2><p>{user.address}</p></div></header>
-            <div className="doc-details"><strong>{t('date_issued')}:</strong> {new Date(tx.date).toLocaleDateString()}</div>
-            <section className="doc-line-items"><table><thead><tr><th>{t('service_description')}</th><th>{t('total')}</th></tr></thead><tbody><tr><td>{tx.serviceDescription}</td><td>{currencySymbol}{tx.amount.toFixed(2)}</td></tr></tbody></table></section>
-            <section className="doc-totals">{user.vatRate > 0 && <><div className="total-row"><span>{t('subtotal')}</span><span>{currencySymbol}{(tx.amount - vat).toFixed(2)}</span></div><div className="total-row"><span>{t('vat')} ({user.vatRate}%)</span><span>{currencySymbol}{vat.toFixed(2)}</span></div></>}<div className="total-row grand-total"><span>{t('total')}</span><span>{currencySymbol}{tx.amount.toFixed(2)}</span></div></section>
-        </div>
-        <div className="doc-viewer-actions"><button className="action-button" onClick={() => window.print()}>{t('print')}</button></div>
-    </div></div> );
-});
-
-const EditTransactionModal = React.memo(({ onClose, onSubmit, transaction, t }: any) => {
-    const [data, setData] = useState<Transaction>(transaction);
-    const handleChange = (e: any) => setData(p => ({ ...p, [e.target.name]: e.target.name === 'amount' ? parseFloat(e.target.value) : e.target.value }));
-    return ( <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><div className="modal-header"><h3>{t('edit_transaction')}</h3><button onClick={onClose} className="close-button">&times;</button></div>
-        <form onSubmit={e => { e.preventDefault(); onSubmit(data); }} className="edit-transaction-form">
-            <div className="form-field"><label>{t('amount')}</label><input name="amount" type="number" step="0.01" value={data.amount} onChange={handleChange} required /></div>
-            <div className="form-field"><label>{t('category')}</label><select name="category" value={data.category} onChange={handleChange}>{(data.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-            <div className="form-field"><label>{t('date')}</label><input name="date" type="datetime-local" value={new Date(new Date(data.date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().substring(0, 16)} onChange={e => setData(p => ({ ...p, date: new Date(e.target.value).toISOString() }))} required /></div>
-            <button type="submit" className="action-button">{t('update')}</button>
-        </form>
     </div></div> );
 });
 
