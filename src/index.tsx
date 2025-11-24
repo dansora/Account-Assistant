@@ -11,7 +11,10 @@ interface ErrorBoundaryProps { children?: React.ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -456,6 +459,7 @@ function App() {
       const newVal = !tx.validated;
       const { error } = await supabase.from('transactions').update({ validated: newVal }).eq('id', id);
       if (!error) setTransactions(p => p.map(t => t.id === id ? { ...t, validated: newVal } : t));
+      else alert('Validation failed: ' + error.message);
   }, [transactions]);
 
   const saveTaxReport = useCallback(async (report: TaxReport) => {
