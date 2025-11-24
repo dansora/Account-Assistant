@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, Component, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -8,17 +8,20 @@ import type { Transaction, User, AppView, Theme, Currency, Language, FontSize, T
 import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals, generateCsv } from './utils';
 
 // --- Error Boundary ---
-interface ErrorBoundaryProps { children?: React.ReactNode; }
+interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, error: null };
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
@@ -189,9 +192,6 @@ const SavedReportsModal = React.memo(({ isOpen, onClose, reports, currencySymbol
     if (!isOpen) return null;
 
     const downloadCsv = (r: TaxReport) => {
-        const dummyTx: Transaction[] = []; // Reconstructing full transaction list is hard without fetching, simplifying to summary for now or stored data
-        // For accurate reproduction, we'd need to store the CSV string or query transactions by date again.
-        // Assuming we just want the summary CSV for now based on stored fields.
         let csvContent = `--- REPORT SUMMARY ---\nStart Date,${r.startDate}\nEnd Date,${r.endDate}\nTotal Income,${r.totalIncome}\nTotal Expense,${r.totalExpense}\nTax Due,${r.taxDue}\nVAT Due,${r.vatDue || 0}\n`;
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
