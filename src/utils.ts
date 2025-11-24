@@ -81,6 +81,13 @@ export const translations: Record<string, Record<Language, string>> = {
   view_transactions: { en: 'View Transactions', ro: 'Vezi Tranzacții' },
   tax_rate_label: { en: 'Tax Rate (%)', ro: 'Rată Impozitare (%)' },
   hide_transactions: { en: 'Hide Transactions', ro: 'Ascunde Tranzacții' },
+  terms_conditions: { en: 'Terms & Conditions', ro: 'Termeni și Condiții' },
+  privacy_policy: { en: 'Privacy Policy', ro: 'Politica de Confidențialitate' },
+  about: { en: 'About', ro: 'Despre' },
+  legal: { en: 'Legal', ro: 'Legal' },
+  delete_account: { en: 'Delete Account', ro: 'Șterge Contul' },
+  delete_account_confirm: { en: 'Are you sure you want to delete your account? All data will be permanently lost.', ro: 'Ești sigur că vrei să ștergi contul? Toate datele vor fi pierdute definitiv.' },
+  financial_summary: { en: 'Financial Summary', ro: 'Sumar Financiar' },
 };
 
 export const dateUtils = {

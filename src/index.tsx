@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef, Component } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -10,11 +10,8 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: React.ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -55,6 +52,35 @@ const CurrentDateTime = React.memo(({ locale }: { locale: string }) => {
     const [dateTime, setDateTime] = useState(new Date());
     useEffect(() => { const timer = setInterval(() => setDateTime(new Date()), 1000); return () => clearInterval(timer); }, []);
     return (<div className="current-datetime"><p>{dateTime.toLocaleString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p></div>);
+});
+
+const SimpleBarChart = React.memo(({ income, expense, balance, t }: { income: number, expense: number, balance: number, t: (k: string) => string }) => {
+    const data = [
+        { label: t('income'), value: income, color: '#2ecc71' },
+        { label: t('expense'), value: expense, color: '#e74c3c' },
+        { label: t('balance'), value: balance, color: '#3498db' }
+    ];
+    const maxValue = Math.max(income, expense, Math.abs(balance), 1);
+    
+    return (
+        <div className="chart-container">
+            <h3>{t('financial_summary')}</h3>
+            <svg className="simple-chart" viewBox="0 0 100 60" preserveAspectRatio="none">
+                {data.map((d, i) => {
+                    const barHeight = Math.max(0, (Math.abs(d.value) / maxValue) * 50);
+                    const y = 55 - barHeight;
+                    return (
+                        <g key={d.label}>
+                            <rect x={10 + i * 30} y={y} width="20" height={barHeight} fill={d.color} rx="2" className="chart-bar" />
+                            <text x={20 + i * 30} y={y - 2} className="chart-text">{d.value.toFixed(0)}</text>
+                            <text x={20 + i * 30} y="65" className="chart-label" style={{fontSize: '6px'}}>{d.label}</text>
+                        </g>
+                    );
+                })}
+                <line x1="0" y1="55" x2="100" y2="55" stroke="#eee" strokeWidth="1" />
+            </svg>
+        </div>
+    );
 });
 
 const TransactionList = React.memo(({ transactions, currencySymbol, onDelete, onValidate, onEdit, t }: { transactions: Transaction[], currencySymbol: string, onDelete: (id: number) => void, onValidate: (id: number) => void, onEdit: (tx: Transaction) => void, t: (k: string) => string }) => {
@@ -177,12 +203,49 @@ const AuthPage = React.memo(({ t }: { t: (k: string) => string }) => {
 const MainPage = React.memo(({ income, expenses, currencySymbol, period, setPeriod, locale, onNav, t }: any) => (
     <div className="page-content">
         <CurrentDateTime locale={locale} /><h2>{t('dashboard')}</h2>
+        <SimpleBarChart income={income} expense={expenses} balance={income - expenses} t={t} />
         <div className="cards-list">
             <div className="income-card-styled income clickable" onClick={() => onNav('income')}><div className="card-label"><h3>{t('income')}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{income.toFixed(2)}</p></div></div>
             <div className="income-card-styled expense clickable" onClick={() => onNav('expense')}><div className="card-label"><h3>{t('expense')}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div></div>
             <div className="income-card-styled balance"><div className="card-label"><h3>{t('balance')}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{(income - expenses).toFixed(2)}</p></div></div>
         </div>
         <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
+    </div>
+));
+
+const TermsPage = React.memo(({ t }: any) => (
+    <div className="page-content">
+        <h2>{t('terms_conditions')}</h2>
+        <div className="legal-text-container">
+            <h3>1. Introduction</h3>
+            <p>Welcome to Account Assistant. By using this app, you agree to comply with and be bound by the following terms and conditions.</p>
+            <h3>2. User Responsibilities</h3>
+            <p>You are responsible for maintaining the confidentiality of your account and password. You agree to accept responsibility for all activities that occur under your account.</p>
+            <h3>3. Data Usage</h3>
+            <p>We use your data solely for providing the functionality of this application. We do not sell your personal data to third parties.</p>
+            <h3>4. Financial Advice</h3>
+            <p>This application is a tool for record-keeping and does not constitute professional financial or tax advice. Please consult with a qualified accountant for professional advice.</p>
+            <h3>5. Changes to Terms</h3>
+            <p>We reserve the right to modify these terms at any time. Continued use of the application signifies your acceptance of any adjustments.</p>
+        </div>
+    </div>
+));
+
+const PrivacyPage = React.memo(({ t }: any) => (
+    <div className="page-content">
+        <h2>{t('privacy_policy')}</h2>
+        <div className="legal-text-container">
+            <h3>1. Information Collection</h3>
+            <p>We collect information you provide directly to us, such as when you create an account, input transaction data, or update your profile.</p>
+            <h3>2. Use of Information</h3>
+            <p>We use the information we collect to operate and improve our services, including calculating tax estimations and generating reports.</p>
+            <h3>3. Data Security</h3>
+            <p>We implement reasonable security measures to protect your information. However, no method of transmission over the internet is 100% secure.</p>
+            <h3>4. User Rights</h3>
+            <p>You have the right to access, correct, or delete your personal data. You can perform these actions directly within the application settings.</p>
+            <h3>5. Contact</h3>
+            <p>If you have questions about this policy, please contact us via the settings page.</p>
+        </div>
     </div>
 ));
 
@@ -234,7 +297,7 @@ const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, delet
     </div> );
 });
 
-const ProfilePage = React.memo(({ user, onUpdate, t }: any) => {
+const ProfilePage = React.memo(({ user, onUpdate, onDeleteAccount, t }: any) => {
     const [data, setData] = useState<User>((user || {}) as User);
     const handleChange = (e: any) => setData(p => ({ ...p, [e.target.id]: e.target.value }));
     return ( <div className="page-content"><h2>{t('profile')}</h2><form className="profile-form" onSubmit={e => { e.preventDefault(); onUpdate(data); }}>
@@ -262,15 +325,22 @@ const ProfilePage = React.memo(({ user, onUpdate, t }: any) => {
         <div className="form-field"><label>{t('iban')}</label><input id="iban" value={data.iban||''} onChange={handleChange} /></div>
 
         <button type="submit" className="action-button" style={{marginTop:'20px'}}>{t('update_profile')}</button>
+        <button type="button" className="action-button delete-account-btn" onClick={onDeleteAccount}>{t('delete_account')}</button>
     </form></div> );
 });
 
-const SettingsPage = React.memo(({ theme, setTheme, currency, setCurrency, lang, setLang, fontSize, setFontSize, t }: any) => (
+const SettingsPage = React.memo(({ theme, setTheme, currency, setCurrency, lang, setLang, fontSize, setFontSize, onViewChange, t }: any) => (
     <div className="page-content"><h2>{t('settings')}</h2>
         <div className="settings-group"><h3>{t('appearance')}</h3><div className="theme-selector">{['light', 'dark', 'auto'].map(m => <button key={m} onClick={() => setTheme(m)} className={theme === m ? 'active' : ''}>{t(m)}</button>)}</div></div>
         <div className="settings-group"><h3>{t('font_size')}</h3><div className="theme-selector">{['small', 'medium', 'large', 'xlarge'].map(s => <button key={s} onClick={() => setFontSize(s)} className={fontSize === s ? 'active' : ''}>{t(s)}</button>)}</div></div>
         <div className="settings-group"><h3>{t('currency')}</h3><select className="currency-selector" value={currency} onChange={e => setCurrency(e.target.value)}>{Object.keys(currencyMap).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         <div className="settings-group"><h3>Language</h3><div className="theme-selector">{['en', 'ro'].map(l => <button key={l} onClick={() => setLang(l)} className={lang === l ? 'active' : ''}>{l.toUpperCase()}</button>)}</div></div>
+        <div className="settings-group">
+            <h3>{t('legal')} & {t('about')}</h3>
+            <button className="action-button" style={{marginBottom: '10px'}} onClick={() => onViewChange('terms')}>{t('terms_conditions')}</button>
+            <button className="action-button" style={{marginBottom: '10px'}} onClick={() => onViewChange('privacy')}>{t('privacy_policy')}</button>
+            <button className="action-button" onClick={() => window.location.href = "mailto:support@accountassistant.com"}>{t('contact_us')}</button>
+        </div>
     </div>
 ));
 
@@ -483,6 +553,33 @@ function App() {
       if (!error) setUser(updatedUser); else alert('Profile update failed: ' + error.message);
   }, [user]);
 
+  const deleteAccount = useCallback(async () => {
+      if (!supabase || !user) return;
+      if (!window.confirm(t('delete_account_confirm'))) return;
+      
+      try {
+          // Delete transactions
+          const { error: txError } = await supabase.from('transactions').delete().eq('user_id', user.id);
+          if (txError) throw txError;
+
+          // Delete profiles
+          const { error: profError } = await supabase.from('profiles').delete().eq('id', user.id);
+          if (profError) throw profError;
+          
+          // Delete reports
+          const { error: repError } = await supabase.from('tax_reports').delete().eq('user_id', user.id);
+          if (repError && repError.code !== 'PGRST116') throw repError; // Ignore if table doesn't exist
+
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          alert('Account data deleted successfully.');
+      } catch (e: any) {
+          console.error('Delete account error:', e);
+          alert('Failed to delete account data completely: ' + e.message);
+      }
+  }, [user, t]);
+
   const totals = useMemo(() => calculatePeriodTotals(transactions), [transactions]);
   const currentTotals = useMemo(() => ({ income: totals[`${period}Income` as keyof typeof totals] as number, expense: totals[`${period}Expenses` as keyof typeof totals] as number }), [totals, period]);
   const currentTransactions = useMemo(() => totals[`${period}Transactions` as keyof typeof totals] as Transaction[], [totals, period]);
@@ -504,9 +601,11 @@ function App() {
                 {view.page === 'main' && <MainPage income={currentTotals.income} expenses={currentTotals.expense} currencySymbol={currencySymbol} period={period} setPeriod={setPeriod} locale={locale} onNav={(p:any) => setView({page:p})} t={t} />}
                 {view.page === 'income' && <IncomePage income={currentTotals.income} addIncome={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'income')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
                 {view.page === 'expense' && <ExpensePage expenses={currentTotals.expense} addExpense={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'expense')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
-                {view.page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} currency={currency} setCurrency={setCurrency} lang={lang} setLang={setLang} fontSize={fontSize} setFontSize={setFontSize} t={t} />}
-                {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} t={t} />}
+                {view.page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} currency={currency} setCurrency={setCurrency} lang={lang} setLang={setLang} fontSize={fontSize} setFontSize={setFontSize} onViewChange={(p:any) => setView({page: p})} t={t} />}
+                {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} onDeleteAccount={deleteAccount} t={t} />}
                 {view.page === 'tax' && <TaxPage transactions={transactions} currencySymbol={currencySymbol} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} onSaveReport={saveTaxReport} t={t} />}
+                {view.page === 'terms' && <TermsPage t={t} />}
+                {view.page === 'privacy' && <PrivacyPage t={t} />}
             </main>
             <footer className="app-footer"><nav>
                 {['main', 'income', 'expense', 'tax', 'settings'].map(p => <button key={p} className={view.page === p ? 'active' : ''} onClick={() => setView({page: p as any})}><span>{t(p === 'main' ? 'home' : p)}</span></button>)}

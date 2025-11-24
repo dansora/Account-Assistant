@@ -36,7 +36,7 @@ export type User = {
     companyRegistrationNumber: string; bankName: string; accountHolderName: string; accountNumber: string; sortCode: string; iban: string;
 };
 
-export type AppView = { page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile'; period?: 'daily' | 'weekly' | 'monthly'; transactionType?: 'income' | 'expense'; };
+export type AppView = { page: 'main' | 'income' | 'expense' | 'settings' | 'detail' | 'history' | 'tax' | 'profile' | 'terms' | 'privacy'; period?: 'daily' | 'weekly' | 'monthly'; transactionType?: 'income' | 'expense'; };
 
 export type Theme = 'light' | 'dark' | 'auto';
 export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';

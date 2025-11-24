@@ -1,4 +1,5 @@
 
+
 :root {
   /* Light Theme Variables - NEW blue palette */
   --primary-blue-light: #56CCF2;   /* A vibrant, light blue */
@@ -100,6 +101,55 @@ body.dark-theme .current-datetime { color: #aaa; }
 main { flex-grow: 1; overflow-y: auto; padding: 20px; padding-bottom: calc(var(--footer-height) + 20px); }
 .page-content { max-width: 900px; margin: 0 auto; }
 .page-content h2 { font-size: 1.5rem; margin-bottom: 20px; color: var(--primary-blue-dark); border-bottom: 2px solid var(--primary-blue-light); padding-bottom: 5px; transition: color 0.3s ease, border-color 0.3s ease; }
+
+/* Chart Styles */
+.chart-container {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.chart-container h3 {
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    color: var(--text-dark);
+    align-self: flex-start;
+}
+.simple-chart {
+    width: 100%;
+    max-width: 400px;
+    height: 200px;
+}
+.chart-bar { transition: height 0.5s ease, y 0.5s ease; }
+.chart-text { font-size: 10px; fill: var(--text-dark); font-weight: bold; text-anchor: middle; }
+.chart-label { font-size: 10px; fill: #888; text-anchor: middle; }
+
+/* Legal Page Text */
+.legal-text-container {
+    background: var(--card-bg);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    line-height: 1.6;
+    color: var(--text-dark);
+}
+.legal-text-container h3 { color: var(--primary-blue-dark); margin-top: 20px; margin-bottom: 10px; }
+.legal-text-container p, .legal-text-container ul { margin-bottom: 15px; font-size: 0.95rem; }
+.legal-text-container ul { padding-left: 20px; }
+
+/* Delete Account Button */
+.delete-account-btn {
+    background-color: #e74c3c !important;
+    margin-top: 40px !important;
+}
+.delete-account-btn:hover {
+    background-color: #c0392b !important;
+}
+
 
 /* Auth Page */
 .auth-container { display: flex; align-items: center; justify-content: center; height: 100%; padding: 20px; }
