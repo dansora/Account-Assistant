@@ -9,6 +9,7 @@ export type DbTransaction = {
 export type DbProfile = {
   id: string; updated_at: string | null; first_name: string | null; last_name: string | null; username: string | null; phone: string | null;
   avatar: string | null; company_name: string | null; business_registration_code: string | null; address: string | null; vat_rate: number;
+  income_tax_rate: number;
   company_registration_number: string | null; bank_name: string | null; account_holder_name: string | null; account_number: string | null;
   sort_code: string | null; iban_code: string | null;
 };
@@ -32,7 +33,7 @@ export type TaxReport = {
 
 export type User = {
     id: string; updatedAt?: string; firstName: string; lastName: string; username: string; email: string; phone: string; avatar: string;
-    companyName: string; businessRegistrationCode: string; address: string; vatRate: number;
+    companyName: string; businessRegistrationCode: string; address: string; vatRate: number; incomeTaxRate: number;
     companyRegistrationNumber: string; bankName: string; accountHolderName: string; accountNumber: string; sortCode: string; iban: string;
 };
 

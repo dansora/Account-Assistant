@@ -79,7 +79,8 @@ export const translations: Record<string, Record<Language, string>> = {
   tax_due: { en: 'Tax Due', ro: 'Impozit de Plată' },
   save_report: { en: 'Save Report', ro: 'Salvează Raport' },
   view_transactions: { en: 'View Transactions', ro: 'Vezi Tranzacții' },
-  tax_rate_label: { en: 'Tax Rate (%)', ro: 'Rată Impozitare (%)' },
+  tax_rate_label: { en: 'Income Tax Rate (%)', ro: 'Impozit pe Venit (%)' },
+  vat_rate_label: { en: 'VAT Rate (%)', ro: 'Cotă TVA (%)' },
   hide_transactions: { en: 'Hide Transactions', ro: 'Ascunde Tranzacții' },
   terms_conditions: { en: 'Terms & Conditions', ro: 'Termeni și Condiții' },
   privacy_policy: { en: 'Privacy Policy', ro: 'Politica de Confidențialitate' },
@@ -88,6 +89,7 @@ export const translations: Record<string, Record<Language, string>> = {
   delete_account: { en: 'Delete Account', ro: 'Șterge Contul' },
   delete_account_confirm: { en: 'Are you sure you want to delete your account? All data will be permanently lost.', ro: 'Ești sigur că vrei să ștergi contul? Toate datele vor fi pierdute definitiv.' },
   financial_summary: { en: 'Financial Summary', ro: 'Sumar Financiar' },
+  select_rate: { en: 'Select Rate', ro: 'Selectează Cota' },
 };
 
 export const dateUtils = {
@@ -168,6 +170,7 @@ export const dbProfileToApp = (dbProfile: DbProfile, authUser: User | any): User
         companyRegistrationNumber: dbProfile.company_registration_number || '',
         address: dbProfile.address || '',
         vatRate: dbProfile.vat_rate || 0,
+        incomeTaxRate: dbProfile.income_tax_rate || 0,
         bankName: dbProfile.bank_name || '',
         accountHolderName: dbProfile.account_holder_name || '',
         accountNumber: dbProfile.account_number || '',
@@ -188,6 +191,7 @@ export const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updat
         company_registration_number: appUser.companyRegistrationNumber || null,
         address: appUser.address || null,
         vat_rate: appUser.vatRate || 0,
+        income_tax_rate: appUser.incomeTaxRate || 0,
         bank_name: appUser.bankName || null,
         account_holder_name: appUser.accountHolderName || null,
         account_number: appUser.accountNumber || null,
