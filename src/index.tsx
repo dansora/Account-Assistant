@@ -1,5 +1,5 @@
 
-import React, { Component, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -12,7 +12,7 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -235,7 +235,7 @@ const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, delet
     </div> );
 });
 
-const ProfilePage = React.memo(({ user, onUpdate, onLogout, t }: any) => {
+const ProfilePage = React.memo(({ user, onUpdate, t }: any) => {
     const [data, setData] = useState<User>((user || {}) as User);
     const handleChange = (e: any) => setData(p => ({ ...p, [e.target.id]: e.target.value }));
     return ( <div className="page-content"><h2>{t('profile')}</h2><form className="profile-form" onSubmit={e => { e.preventDefault(); onUpdate(data); }}>
@@ -415,7 +415,7 @@ function App() {
                 {view.page === 'income' && <IncomePage income={currentTotals.income} addIncome={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
                 {view.page === 'expense' && <ExpensePage expenses={currentTotals.expense} addExpense={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
                 {view.page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} currency={currency} setCurrency={setCurrency} lang={lang} setLang={setLang} fontSize={fontSize} setFontSize={setFontSize} t={t} />}
-                {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} onLogout={() => supabase.auth.signOut()} t={t} />}
+                {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} t={t} />}
                 {view.page === 'tax' && <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t} />}
             </main>
             <footer className="app-footer"><nav>
