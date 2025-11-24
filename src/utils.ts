@@ -93,6 +93,12 @@ export const translations: Record<string, Record<Language, string>> = {
   confirm_delete: { en: 'Yes, Delete Account', ro: 'Da, Șterge Contul' },
   financial_summary: { en: 'Financial Summary', ro: 'Sumar Financiar' },
   select_rate: { en: 'Select Rate', ro: 'Selectează Cota' },
+  vat_due: { en: 'VAT Due', ro: 'TVA de Plată' },
+  saved_reports: { en: 'Saved Reports', ro: 'Rapoarte Salvate' },
+  view_saved_reports: { en: 'View Saved Reports', ro: 'Vezi Rapoarte Salvate' },
+  created_at: { en: 'Created At', ro: 'Creat La' },
+  close: { en: 'Close', ro: 'Închide' },
+  no_saved_reports: { en: 'No saved reports found.', ro: 'Niciun raport salvat.' },
 };
 
 export const dateUtils = {
@@ -250,5 +256,6 @@ export const generateCsv = (transactions: Transaction[], summary: TaxReport) => 
     csvContent += `Balance,${(summary.totalIncome - summary.totalExpense).toFixed(2)}\n`;
     csvContent += `Tax Rate,${summary.taxRate}%\n`;
     csvContent += `Tax Due,${summary.taxDue.toFixed(2)}\n`;
+    csvContent += `VAT Due,${summary.vatDue.toFixed(2)}\n`;
     return csvContent;
 };

@@ -28,6 +28,7 @@ export type TaxReport = {
     totalIncome: number;
     totalExpense: number;
     taxDue: number;
+    vatDue: number;
     createdAt?: string;
 };
 

@@ -1,5 +1,5 @@
 
-import React, { Component, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -11,11 +11,8 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: React.ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -87,18 +84,21 @@ const SimpleBarChart = React.memo(({ income, expense, balance, t }: { income: nu
     );
 });
 
-const TransactionList = React.memo(({ transactions, currencySymbol, onDelete, onValidate, onEdit, t }: { transactions: Transaction[], currencySymbol: string, onDelete: (id: number) => void, onValidate: (id: number) => void, onEdit: (tx: Transaction) => void, t: (k: string) => string }) => {
+const TransactionList = React.memo(({ transactions, currencySymbol, onDelete, onValidate, onEdit, vatRate, t }: { transactions: Transaction[], currencySymbol: string, onDelete: (id: number) => void, onValidate: (id: number) => void, onEdit: (tx: Transaction) => void, vatRate?: number, t: (k: string) => string }) => {
     return (
         <div className="transaction-list-container">
             {transactions.length === 0 ? <p style={{textAlign: 'center', color: '#888', padding: '20px'}}>{t('no_transactions_period')}</p> : 
             <ul className="transaction-list">
-                {transactions.map(tx => (
+                {transactions.map(tx => {
+                    const vatAmount = vatRate ? tx.amount * (vatRate / 100) : 0;
+                    return (
                     <li key={tx.id} className={`transaction-item ${tx.validated ? 'validated' : ''}`}>
                         <div className="transaction-details">
                             <span className="transaction-date">{new Date(tx.date).toLocaleDateString()}</span>
                             <span className="transaction-category">{tx.category}</span>
                             {tx.validated && <span className="validated-badge">✓ {t('validated')}</span>}
                             {tx.serviceDescription && <span className="transaction-desc">{tx.serviceDescription}</span>}
+                            {vatRate && vatRate > 0 && <span className="transaction-desc" style={{color: '#7f8c8d', fontSize: '0.8rem'}}>VAT: {currencySymbol}{vatAmount.toFixed(2)}</span>}
                         </div>
                         <div className="transaction-right">
                              <span className={`amount ${tx.type}`}>{currencySymbol}{tx.amount.toFixed(2)}</span>
@@ -109,7 +109,7 @@ const TransactionList = React.memo(({ transactions, currencySymbol, onDelete, on
                              </div>
                         </div>
                     </li>
-                ))}
+                )})}
             </ul>}
         </div>
     );
@@ -185,6 +185,54 @@ const IncomeNumpadModal = React.memo(({ isOpen, onClose, onSubmit, initialData, 
     </div></div> );
 });
 
+const SavedReportsModal = React.memo(({ isOpen, onClose, reports, currencySymbol, t }: { isOpen: boolean, onClose: () => void, reports: TaxReport[], currencySymbol: string, t: (k: string) => string }) => {
+    if (!isOpen) return null;
+
+    const downloadCsv = (r: TaxReport) => {
+        const dummyTx: Transaction[] = []; // Reconstructing full transaction list is hard without fetching, simplifying to summary for now or stored data
+        // For accurate reproduction, we'd need to store the CSV string or query transactions by date again.
+        // Assuming we just want the summary CSV for now based on stored fields.
+        let csvContent = `--- REPORT SUMMARY ---\nStart Date,${r.startDate}\nEnd Date,${r.endDate}\nTotal Income,${r.totalIncome}\nTotal Expense,${r.totalExpense}\nTax Due,${r.taxDue}\nVAT Due,${r.vatDue || 0}\n`;
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `saved_report_${r.startDate}.csv`; a.click();
+    };
+
+    const emailReport = (r: TaxReport) => {
+        const subject = `Saved Tax Report: ${r.startDate} to ${r.endDate}`;
+        const body = `Income: ${currencySymbol}${r.totalIncome}\nExpense: ${currencySymbol}${r.totalExpense}\nTax Due: ${currencySymbol}${r.taxDue}\nVAT Due: ${currencySymbol}${r.vatDue || 0}`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-header"><h3>{t('saved_reports')}</h3><button onClick={onClose} className="close-button">&times;</button></div>
+                {reports.length === 0 ? <p>{t('no_saved_reports')}</p> : 
+                    <ul className="transaction-list" style={{maxHeight: '400px', overflowY: 'auto'}}>
+                        {reports.map((r, i) => (
+                            <li key={r.id || i} className="transaction-item" style={{flexDirection:'column', alignItems:'flex-start'}}>
+                                <div style={{width:'100%', display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
+                                    <span style={{fontWeight:'bold'}}>{r.startDate} - {r.endDate}</span>
+                                    <span style={{fontSize:'0.8rem', color:'#888'}}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</span>
+                                </div>
+                                <div style={{width:'100%', fontSize:'0.9rem', marginBottom:'10px'}}>
+                                    Inc: {currencySymbol}{r.totalIncome} | Exp: {currencySymbol}{r.totalExpense} | Tax: {currencySymbol}{r.taxDue} | VAT: {currencySymbol}{r.vatDue || 0}
+                                </div>
+                                <div style={{display:'flex', gap:'10px'}}>
+                                    <button className="action-button" style={{padding:'5px 10px', fontSize:'0.9rem', marginBottom:0}} onClick={() => downloadCsv(r)}>CSV</button>
+                                    <button className="action-button" style={{padding:'5px 10px', fontSize:'0.9rem', marginBottom:0, backgroundColor:'#2980b9'}} onClick={() => emailReport(r)}>Email</button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                }
+                <button className="action-button" style={{marginTop:'20px'}} onClick={onClose}>{t('close')}</button>
+            </div>
+        </div>
+    );
+});
+
 // --- Pages ---
 const AuthPage = React.memo(({ t }: { t: (k: string) => string }) => {
     const [isLogin, setIsLogin] = useState(true); const [email, setEmail] = useState(''); const [pass, setPass] = useState(''); const [msg, setMsg] = useState({ type: '', text: '' });
@@ -253,7 +301,7 @@ const PrivacyPage = React.memo(({ t }: any) => (
     </div>
 ));
 
-const IncomePage = React.memo(({ income, addIncome, updateTransaction, deleteTransaction, validateTransaction, transactions, period, setPeriod, currencySymbol, locale, t }: any) => {
+const IncomePage = React.memo(({ income, addIncome, updateTransaction, deleteTransaction, validateTransaction, transactions, period, setPeriod, currencySymbol, locale, user, t }: any) => {
     const [modalMode, setModalMode] = useState<'create'|'edit'>('create');
     const [selectedTx, setSelectedTx] = useState<Transaction|null>(null);
     const [open, setOpen] = useState(false);
@@ -272,12 +320,12 @@ const IncomePage = React.memo(({ income, addIncome, updateTransaction, deleteTra
         <div className="cards-list"><div className="income-card-styled income"><div className="card-label"><h3>{t(period)}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{income.toFixed(2)}</p></div></div></div>
         <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
         <div className="category-breakdown-container"><h3>{t('income_breakdown').replace('{period}', t(period))}</h3><ul className="category-list">{breakdown.map((i: any) => <li key={i.category} className="category-item"><div className="category-info"><span className="category-name">{i.category}</span><span className="category-amount amount income">{currencySymbol}{i.amount.toFixed(2)}</span></div><div className="progress-bar-container"><div className="progress-bar income" style={{ width: `${i.percentage}%` }}></div></div><span className="category-percentage">{i.percentage.toFixed(1)}%</span></li>)}</ul></div>
-        <TransactionList transactions={transactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} t={t} />
+        <TransactionList transactions={transactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} vatRate={user?.vatRate} t={t} />
         <IncomeNumpadModal key={open ? 'open' : 'closed'} isOpen={open} onClose={handleClose} onSubmit={handleSubmit} initialData={selectedTx} title={modalMode === 'create' ? t('add_income') : t('edit_transaction')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
     </div> );
 });
 
-const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, deleteTransaction, validateTransaction, transactions, period, setPeriod, currencySymbol, locale, t }: any) => {
+const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, deleteTransaction, validateTransaction, transactions, period, setPeriod, currencySymbol, locale, user, t }: any) => {
     const [modalMode, setModalMode] = useState<'create'|'edit'>('create');
     const [selectedTx, setSelectedTx] = useState<Transaction|null>(null);
     const [open, setOpen] = useState(false);
@@ -296,7 +344,7 @@ const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, delet
         <div className="cards-list"><div className="income-card-styled expense"><div className="card-label"><h3>{t(period)}</h3></div><div className="card-value"><p className="amount">{currencySymbol}{expenses.toFixed(2)}</p></div></div></div>
         <div className="period-selector">{['daily', 'weekly', 'monthly', 'yearly'].map(p => <button key={p} onClick={() => setPeriod(p)} className={period === p ? 'active' : ''}>{t(p)}</button>)}</div>
         <div className="category-breakdown-container"><h3>{t('expense_breakdown').replace('{period}', t(period))}</h3><ul className="category-list">{breakdown.map((i: any) => <li key={i.category} className="category-item"><div className="category-info"><span className="category-name">{i.category}</span><span className="category-amount amount expense">{currencySymbol}{i.amount.toFixed(2)}</span></div><div className="progress-bar-container"><div className="progress-bar expense" style={{ width: `${i.percentage}%` }}></div></div><span className="category-percentage">{i.percentage.toFixed(1)}%</span></li>)}</ul></div>
-        <TransactionList transactions={transactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} t={t} />
+        <TransactionList transactions={transactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} vatRate={user?.vatRate} t={t} />
         <ExpenseModal key={open ? 'open' : 'closed'} isOpen={open} onClose={handleClose} onSubmit={handleSubmit} initialData={selectedTx} title={modalMode === 'create' ? t('add_expense') : t('edit_transaction')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
     </div> );
 });
@@ -415,6 +463,15 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
     const [selectedTx, setSelectedTx] = useState<Transaction|null>(null);
     const [incomeOpen, setIncomeOpen] = useState(false);
     const [expenseOpen, setExpenseOpen] = useState(false);
+    const [savedReports, setSavedReports] = useState<TaxReport[]>([]);
+    const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+
+    // Fetch saved reports on mount
+    useEffect(() => {
+        if (!supabase || !user) return;
+        supabase.from('tax_reports').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+            .then(({ data }) => { if (data) setSavedReports(data as any); });
+    }, [user]);
 
     // Filter transactions by date
     const filteredTransactions = useMemo(() => {
@@ -431,9 +488,13 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
         const inc = filteredTransactions.filter((tx:any) => tx.type==='income').reduce((a:number,b:any)=>a+b.amount,0);
         const exp = filteredTransactions.filter((tx:any) => tx.type==='expense').reduce((a:number,b:any)=>a+b.amount,0);
         const taxRate = user?.incomeTaxRate || 0;
+        const vatRate = user?.vatRate || 0;
         const taxDue = (inc - exp) * (taxRate / 100);
-        return { income: inc, expense: exp, balance: inc - exp, taxDue: taxDue > 0 ? taxDue : 0, count: filteredTransactions.length };
-    }, [filteredTransactions, user?.incomeTaxRate]);
+        // Simplified VAT Due: Total Income VAT - Total Expense VAT
+        const vatDue = (inc * (vatRate/100)) - (exp * (vatRate/100));
+        
+        return { income: inc, expense: exp, balance: inc - exp, taxDue: taxDue > 0 ? taxDue : 0, vatDue: vatDue > 0 ? vatDue : 0, count: filteredTransactions.length };
+    }, [filteredTransactions, user?.incomeTaxRate, user?.vatRate]);
 
     const handleEdit = (tx: Transaction) => { 
         setSelectedTx(tx); 
@@ -447,7 +508,7 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
 
     const downloadReport = () => {
         if (!report) return;
-        const csv = generateCsv(filteredTransactions, { startDate, endDate, taxRate: user?.incomeTaxRate || 0, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue });
+        const csv = generateCsv(filteredTransactions, { startDate, endDate, taxRate: user?.incomeTaxRate || 0, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue, vatDue: report.vatDue });
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `tax_report_${startDate}_${endDate}.csv`; a.click();
@@ -456,14 +517,19 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
     const emailReport = () => {
         if (!report) return;
         const taxRate = user?.incomeTaxRate || 0;
+        const vatRate = user?.vatRate || 0;
         const subject = `Tax Report: ${startDate} to ${endDate}`;
-        const body = `Report Summary:\n\nIncome: ${currencySymbol}${report.income.toFixed(2)}\nExpense: ${currencySymbol}${report.expense.toFixed(2)}\nBalance: ${currencySymbol}${report.balance.toFixed(2)}\nTax Due (${taxRate}%): ${currencySymbol}${report.taxDue.toFixed(2)}\n\nPlease attach the downloaded CSV report.`;
+        const body = `Report Summary:\n\nIncome: ${currencySymbol}${report.income.toFixed(2)}\nExpense: ${currencySymbol}${report.expense.toFixed(2)}\nBalance: ${currencySymbol}${report.balance.toFixed(2)}\nTax Due (${taxRate}%): ${currencySymbol}${report.taxDue.toFixed(2)}\nVAT Due (${vatRate}%): ${currencySymbol}${report.vatDue.toFixed(2)}\n\nPlease attach the downloaded CSV report.`;
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     };
 
     const saveReportToDb = () => {
         if (!report) return;
-        onSaveReport({ startDate, endDate, taxRate: user?.incomeTaxRate || 0, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue });
+        const newReport = {
+            startDate, endDate, taxRate: user?.incomeTaxRate || 0, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue, vatDue: report.vatDue
+        };
+        onSaveReport(newReport);
+        setSavedReports(prev => [newReport, ...prev]); // Optimistic update
     };
 
     const updateProfileSetting = (key: string, value: number) => {
@@ -476,8 +542,11 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
 
     return (
         <div className="page-content">
-            <h2>{t('tax_report')}</h2>
-            <div className="date-selector-container">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <h2>{t('tax_report')}</h2>
+                <button className="action-button" style={{width:'auto', padding:'8px 15px', fontSize:'0.9rem', marginBottom:0}} onClick={() => setIsReportsModalOpen(true)}>{t('view_saved_reports')}</button>
+            </div>
+            <div className="date-selector-container" style={{marginTop:'20px'}}>
                 <div className="form-field"><label>{t('start_date')}</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
                 <div className="form-field"><label>{t('end_date')}</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
             </div>
@@ -514,6 +583,10 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
                     <span style={{fontWeight: 'bold'}}>{t('tax_due')} ({user?.incomeTaxRate}%)</span>
                     <span className="amount" style={{color: '#d35400'}}>{currencySymbol}{report.taxDue.toFixed(2)}</span>
                 </div>
+                 <div className="summary-item" style={{paddingTop: '10px'}}>
+                    <span style={{fontWeight: 'bold'}}>{t('vat_due')} ({user?.vatRate}%)</span>
+                    <span className="amount" style={{color: '#8e44ad'}}>{currencySymbol}{report.vatDue.toFixed(2)}</span>
+                </div>
                 
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px'}}>
                      <button className="action-button" style={{marginBottom: 0, backgroundColor: '#34495e'}} onClick={saveReportToDb}>{t('save_report')}</button>
@@ -528,12 +601,13 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
             {showTransactions && startDate && endDate && (
                 <div style={{marginTop: '30px'}}>
                     <h3>{t('view_transactions')} ({filteredTransactions.length})</h3>
-                    <TransactionList transactions={filteredTransactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} t={t} />
+                    <TransactionList transactions={filteredTransactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} vatRate={user?.vatRate} t={t} />
                 </div>
             )}
 
             <IncomeNumpadModal key={incomeOpen ? 'open-inc' : 'closed-inc'} isOpen={incomeOpen} onClose={handleClose} onSubmit={handleIncomeSubmit} initialData={selectedTx} title={t('edit_transaction')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
             <ExpenseModal key={expenseOpen ? 'open-exp' : 'closed-exp'} isOpen={expenseOpen} onClose={handleClose} onSubmit={handleExpenseSubmit} initialData={selectedTx} title={t('edit_transaction')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
+            <SavedReportsModal isOpen={isReportsModalOpen} onClose={() => setIsReportsModalOpen(false)} reports={savedReports} currencySymbol={currencySymbol} t={t} />
         </div>
     );
 });
@@ -632,7 +706,8 @@ function App() {
           tax_rate: report.taxRate,
           total_income: report.totalIncome,
           total_expense: report.totalExpense,
-          tax_due: report.taxDue
+          tax_due: report.taxDue,
+          vat_due: report.vatDue
       });
       if (error) alert('Failed to save report: ' + error.message);
       else alert('Report saved successfully!');
@@ -682,8 +757,8 @@ function App() {
             </header>
             <main>
                 {view.page === 'main' && <MainPage income={currentTotals.income} expenses={currentTotals.expense} currencySymbol={currencySymbol} period={period} setPeriod={setPeriod} locale={locale} onNav={(p:any) => setView({page:p})} t={t} />}
-                {view.page === 'income' && <IncomePage income={currentTotals.income} addIncome={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'income')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
-                {view.page === 'expense' && <ExpensePage expenses={currentTotals.expense} addExpense={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'expense')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
+                {view.page === 'income' && <IncomePage income={currentTotals.income} addIncome={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'income')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} user={user} t={t} />}
+                {view.page === 'expense' && <ExpensePage expenses={currentTotals.expense} addExpense={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'expense')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} user={user} t={t} />}
                 {view.page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} currency={currency} setCurrency={setCurrency} lang={lang} setLang={setLang} fontSize={fontSize} setFontSize={setFontSize} onViewChange={(p:any) => setView({page: p})} t={t} />}
                 {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} onDeleteAccount={deleteAccount} t={t} />}
                 {view.page === 'tax' && <TaxPage transactions={transactions} currencySymbol={currencySymbol} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} onSaveReport={saveTaxReport} user={user} onUpdateUser={updateUser} t={t} />}
