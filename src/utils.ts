@@ -19,7 +19,7 @@ export const translations: Record<string, Record<Language, string>> = {
   no_transactions_month: { en: 'No transactions for this month.', ro: 'Nicio tranzacție luna aceasta.' }, monthly_history: { en: 'Monthly {type} History', ro: 'Istoric Lunar {type}' },
   no_transactions_period: { en: 'No transactions for this period.', ro: 'Nicio tranzacție pentru această perioadă.'},
   appearance: { en: 'Appearance', ro: 'Aspect' }, light: { en: 'Light', ro: 'Luminos' }, dark: { en: 'Dark', ro: 'Întunecat' }, auto: { en: 'Auto', ro: 'Automat' },
-  font_size: { en: 'Font Size', ro: 'Dimensiune Font' }, small: { en: 'Small', ro: 'Mic' }, medium: { en: 'Medium', ro: 'Mediu' }, large: { en: 'Large', ro: 'Mare' },
+  font_size: { en: 'Font Size', ro: 'Dimensiune Font' }, small: { en: 'Small', ro: 'Mic' }, medium: { en: 'Medium', ro: 'Mediu' }, large: { en: 'Large', ro: 'Mare' }, xlarge: { en: 'Extra Large', ro: 'Foarte Mare' },
   currency: { en: 'Currency', ro: 'Monedă' }, contact_us: { en: 'Contact Us', ro: 'Contactează-ne' },
   contact_intro: { en: 'Have a question or feedback? We\'d love to hear from you.', ro: 'Ai o întrebare sau un feedback? Ne-ar plăcea să auzim de la tine.' },
   contact_name: { en: 'Name', ro: 'Nume' }, contact_your_name: { en: 'Your Name', ro: 'Numele tău' }, contact_email: { en: 'Email', ro: 'Email' },
@@ -31,7 +31,7 @@ export const translations: Record<string, Record<Language, string>> = {
   report_summary: { en: 'Report Summary', ro: 'Sumar Raport' }, total_income: { en: 'Total Income:', ro: 'Venit Total:' }, total_expense: { en: 'Total Expense:', ro: 'Cheltuieli Totale:' },
   download_csv: { en: 'Download Report (.csv)', ro: 'Descarcă Raport (.csv)' }, send_email: { en: 'Send Email', ro: 'Trimite Email' },
   login: { en: 'Login', ro: 'Autentificare' }, signup: { en: 'Sign Up', ro: 'Înregistrare' }, email_address: { en: 'Email Address', ro: 'Adresă de Email' }, password: { en: 'Password', ro: 'Parolă' },
-  full_name: { en: 'Full Name', ro: 'Nume Complet' }, username: { en: 'Username', ro: 'Nume utilizator' },
+  full_name: { en: 'Full Name', ro: 'Nume Complet' }, first_name: { en: 'First Name', ro: 'Prenume' }, last_name: { en: 'Last Name', ro: 'Nume' }, username: { en: 'Username', ro: 'Nume utilizator' },
   no_account: { en: "Don't have an account? Sign Up", ro: 'Nu ai cont? Înregistrează-te' }, has_account: { en: 'Already have an account? Login', ro: 'Ai deja cont? Autentifică-te' },
   logout: { en: 'Logout', ro: 'Deconectare' }, profile: { en: 'Profile', ro: 'Profil' }, phone_number: { en: 'Phone Number', ro: 'Număr de Telefon' },
   profile_picture: { en: 'Profile Picture', ro: 'Poză de Profil' }, update_profile: { en: 'Update Profile', ro: 'Actualizează Profilul' },
@@ -63,6 +63,9 @@ export const translations: Record<string, Record<Language, string>> = {
   edit: { en: 'Edit', ro: 'Editează' },
   update: { en: 'Update', ro: 'Actualizează' },
   edit_transaction: { en: 'Edit Transaction', ro: 'Editează Tranzacția' },
+  delete: { en: 'Delete', ro: 'Șterge' },
+  validate: { en: 'Validate', ro: 'Validează' },
+  validated: { en: 'Validated', ro: 'Validat' },
   amount: { en: 'Amount', ro: 'Sumă' },
   category: { en: 'Category', ro: 'Categorie' },
   date: { en: 'Date', ro: 'Data' },
@@ -107,6 +110,7 @@ export const dbTransactionToApp = (dbTx: DbTransaction): Transaction => {
         paymentLink: paymentLink,
         attachmentUrl: dbTx.attachment_url || undefined,
         attachmentBucket: dbTx.attachment_bucket || undefined,
+        validated: dbTx.validated || false,
     };
 };
 
@@ -125,8 +129,6 @@ export const mapTransactionToDb = (appTx: Partial<Transaction>): any => {
         category: appTx.category,
     };
 
-    // Conditionally add properties only if they are defined.
-    // This prevents sending null values for columns that might not exist in the DB schema yet.
     if (appTx.documentType) dbTx.document_type = appTx.documentType;
     if (appTx.documentNumber) dbTx.document_number = appTx.documentNumber;
     if (appTx.clientName) dbTx.client_name = appTx.clientName;
@@ -134,6 +136,7 @@ export const mapTransactionToDb = (appTx: Partial<Transaction>): any => {
     if (serviceDescription.trim()) dbTx.service_description = serviceDescription.trim();
     if (appTx.attachmentUrl) dbTx.attachment_url = appTx.attachmentUrl;
     if (appTx.attachmentBucket) dbTx.attachment_bucket = appTx.attachmentBucket;
+    if (appTx.validated !== undefined) dbTx.validated = appTx.validated;
 
     return dbTx;
 };
@@ -142,7 +145,8 @@ export const dbProfileToApp = (dbProfile: DbProfile, authUser: User | any): User
     return {
         id: dbProfile.id,
         updatedAt: dbProfile.updated_at || undefined,
-        fullName: dbProfile.full_name || '',
+        firstName: dbProfile.first_name || '',
+        lastName: dbProfile.last_name || '',
         username: dbProfile.username || '',
         email: authUser.email || '',
         phone: dbProfile.phone || '',
@@ -162,7 +166,8 @@ export const dbProfileToApp = (dbProfile: DbProfile, authUser: User | any): User
 
 export const appUserToDbProfile = (appUser: User): Omit<DbProfile, 'id' | 'updated_at'> => {
     return {
-        full_name: appUser.fullName || null,
+        first_name: appUser.firstName || null,
+        last_name: appUser.lastName || null,
         username: appUser.username || null,
         phone: appUser.phone || null,
         avatar: appUser.avatar || null,
