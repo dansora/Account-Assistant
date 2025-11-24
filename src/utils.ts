@@ -1,5 +1,5 @@
 
-import { Currency, Language, DbTransaction, Transaction, DbProfile, User } from './types';
+import { Currency, Language, DbTransaction, Transaction, DbProfile, User, TaxReport } from './types';
 
 export const currencyMap: Record<Currency, string> = { 'GBP': '£', 'USD': '$', 'CAD': 'CA$', 'AUD': 'A$', 'EUR': '€', 'JPY': '¥', 'CNY': '¥', 'CHF': 'Fr', 'INR': '₹', };
 export const languageToLocaleMap: Record<Language, string> = { 'en': 'en-GB', 'ro': 'ro-RO' };
@@ -29,7 +29,7 @@ export const translations: Record<string, Record<Language, string>> = {
   tax_report: { en: 'Tax Report', ro: 'Raport Fiscal' }, tax_subtitle: { en: 'Select a period to generate your report.', ro: 'Selectează o perioadă pentru a genera raportul.' },
   start_date: { en: 'Start Date', ro: 'Data de început' }, end_date: { en: 'End Date', ro: 'Data de sfârșit' }, select_date: { en: 'Select a date', ro: 'Selectează o dată' },
   report_summary: { en: 'Report Summary', ro: 'Sumar Raport' }, total_income: { en: 'Total Income:', ro: 'Venit Total:' }, total_expense: { en: 'Total Expense:', ro: 'Cheltuieli Totale:' },
-  download_csv: { en: 'Download Report (.csv)', ro: 'Descarcă Raport (.csv)' }, send_email: { en: 'Send Email', ro: 'Trimite Email' },
+  download_csv: { en: 'Download CSV', ro: 'Descarcă CSV' }, send_email: { en: 'Send Email', ro: 'Trimite Email' },
   login: { en: 'Login', ro: 'Autentificare' }, signup: { en: 'Sign Up', ro: 'Înregistrare' }, email_address: { en: 'Email Address', ro: 'Adresă de Email' }, password: { en: 'Password', ro: 'Parolă' },
   full_name: { en: 'Full Name', ro: 'Nume Complet' }, first_name: { en: 'First Name', ro: 'Prenume' }, last_name: { en: 'Last Name', ro: 'Nume' }, username: { en: 'Username', ro: 'Nume utilizator' },
   no_account: { en: "Don't have an account? Sign Up", ro: 'Nu ai cont? Înregistrează-te' }, has_account: { en: 'Already have an account? Login', ro: 'Ai deja cont? Autentifică-te' },
@@ -76,6 +76,11 @@ export const translations: Record<string, Record<Language, string>> = {
   capture: { en: 'Capture', ro: 'Capturează' },
   cancel: { en: 'Cancel', ro: 'Anulează' },
   remove: { en: 'Remove', ro: 'Elimină' },
+  tax_due: { en: 'Tax Due', ro: 'Impozit de Plată' },
+  save_report: { en: 'Save Report', ro: 'Salvează Raport' },
+  view_transactions: { en: 'View Transactions', ro: 'Vezi Tranzacții' },
+  tax_rate_label: { en: 'Tax Rate (%)', ro: 'Rată Impozitare (%)' },
+  hide_transactions: { en: 'Hide Transactions', ro: 'Ascunde Tranzacții' },
 };
 
 export const dateUtils = {
@@ -216,4 +221,20 @@ export const calculatePeriodTotals = (transactions: Transaction[]) => {
       }
     });
     return { ...totals, ...lists };
+};
+
+export const generateCsv = (transactions: Transaction[], summary: TaxReport) => {
+    let csvContent = "Date,Type,Amount,Category,Validated\n";
+    transactions.forEach(tx => {
+        csvContent += `${new Date(tx.date).toLocaleDateString()},${tx.type},${tx.amount.toFixed(2)},${tx.category},${tx.validated ? 'Yes' : 'No'}\n`;
+    });
+    csvContent += "\n--- SUMMARY ---\n";
+    csvContent += `Start Date,${summary.startDate}\n`;
+    csvContent += `End Date,${summary.endDate}\n`;
+    csvContent += `Total Income,${summary.totalIncome.toFixed(2)}\n`;
+    csvContent += `Total Expense,${summary.totalExpense.toFixed(2)}\n`;
+    csvContent += `Balance,${(summary.totalIncome - summary.totalExpense).toFixed(2)}\n`;
+    csvContent += `Tax Rate,${summary.taxRate}%\n`;
+    csvContent += `Tax Due,${summary.taxDue.toFixed(2)}\n`;
+    return csvContent;
 };

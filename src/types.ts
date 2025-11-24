@@ -19,6 +19,17 @@ export type Transaction = {
   attachmentUrl?: string; attachmentBucket?: string; validated?: boolean;
 };
 
+export type TaxReport = {
+    id?: number;
+    startDate: string;
+    endDate: string;
+    taxRate: number;
+    totalIncome: number;
+    totalExpense: number;
+    taxDue: number;
+    createdAt?: string;
+};
+
 export type User = {
     id: string; updatedAt?: string; firstName: string; lastName: string; username: string; email: string; phone: string; avatar: string;
     companyName: string; businessRegistrationCode: string; address: string; vatRate: number;

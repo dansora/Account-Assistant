@@ -1,18 +1,17 @@
-
-import React, { Component, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
 import './index.css';
-import type { Transaction, User, AppView, Theme, Currency, Language, FontSize } from './types';
-import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals } from './utils';
+import type { Transaction, User, AppView, Theme, Currency, Language, FontSize, TaxReport } from './types';
+import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransactionToApp, mapTransactionToDb, dbProfileToApp, appUserToDbProfile, calculatePeriodTotals, generateCsv } from './utils';
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -272,16 +271,63 @@ const SettingsPage = React.memo(({ theme, setTheme, currency, setCurrency, lang,
     </div>
 ));
 
-const TaxPage = React.memo(({ transactions, currencySymbol, t }: any) => {
+const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, deleteTransaction, validateTransaction, onSaveReport, t }: any) => {
     const [startDate, setStartDate] = useState(''); const [endDate, setEndDate] = useState('');
-    const report = useMemo(() => {
-        if (!startDate || !endDate) return null;
-        const s = new Date(startDate); const e = new Date(endDate); e.setHours(23,59,59);
-        const filtered = transactions.filter((tx: Transaction) => { const d = new Date(tx.date); return d >= s && d <= e; });
-        const inc = filtered.filter((t:any) => t.type==='income').reduce((a:number,b:any)=>a+b.amount,0);
-        const exp = filtered.filter((t:any) => t.type==='expense').reduce((a:number,b:any)=>a+b.amount,0);
-        return { income: inc, expense: exp, balance: inc - exp, count: filtered.length };
+    const [taxRate, setTaxRate] = useState(0);
+    const [showTransactions, setShowTransactions] = useState(false);
+    const [modalMode, setModalMode] = useState<'create'|'edit'>('create');
+    const [selectedTx, setSelectedTx] = useState<Transaction|null>(null);
+    const [incomeOpen, setIncomeOpen] = useState(false);
+    const [expenseOpen, setExpenseOpen] = useState(false);
+
+    // Filter transactions by date
+    const filteredTransactions = useMemo(() => {
+        if (!startDate || !endDate) return [];
+        const s = new Date(startDate); 
+        const e = new Date(endDate); e.setHours(23,59,59,999);
+        return transactions.filter((tx: Transaction) => { 
+            const d = new Date(tx.date); 
+            return d >= s && d <= e; 
+        }).sort((a: Transaction, b: Transaction) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Chronological order
     }, [transactions, startDate, endDate]);
+
+    const report = useMemo(() => {
+        const inc = filteredTransactions.filter((t:any) => t.type==='income').reduce((a:number,b:any)=>a+b.amount,0);
+        const exp = filteredTransactions.filter((t:any) => t.type==='expense').reduce((a:number,b:any)=>a+b.amount,0);
+        const taxDue = (inc - exp) * (taxRate / 100);
+        return { income: inc, expense: exp, balance: inc - exp, taxDue: taxDue > 0 ? taxDue : 0, count: filteredTransactions.length };
+    }, [filteredTransactions, taxRate]);
+
+    const handleEdit = (tx: Transaction) => { 
+        setSelectedTx(tx); 
+        setModalMode('edit'); 
+        if (tx.type === 'income') setIncomeOpen(true); else setExpenseOpen(true);
+    };
+    
+    const handleClose = () => { setIncomeOpen(false); setExpenseOpen(false); setSelectedTx(null); };
+
+    const handleIncomeSubmit = (data: any) => { updateTransaction({...selectedTx, ...data}); handleClose(); };
+    const handleExpenseSubmit = (data: any) => { updateTransaction({...selectedTx, ...data}); handleClose(); };
+
+    const downloadReport = () => {
+        if (!report) return;
+        const csv = generateCsv(filteredTransactions, { startDate, endDate, taxRate, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `tax_report_${startDate}_${endDate}.csv`; a.click();
+    };
+
+    const emailReport = () => {
+        if (!report) return;
+        const subject = `Tax Report: ${startDate} to ${endDate}`;
+        const body = `Report Summary:\n\nIncome: ${currencySymbol}${report.income.toFixed(2)}\nExpense: ${currencySymbol}${report.expense.toFixed(2)}\nBalance: ${currencySymbol}${report.balance.toFixed(2)}\nTax Due (${taxRate}%): ${currencySymbol}${report.taxDue.toFixed(2)}\n\nPlease attach the downloaded CSV report.`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    };
+
+    const saveReportToDb = () => {
+        if (!report) return;
+        onSaveReport({ startDate, endDate, taxRate, totalIncome: report.income, totalExpense: report.expense, taxDue: report.taxDue });
+    };
 
     return (
         <div className="page-content">
@@ -290,12 +336,42 @@ const TaxPage = React.memo(({ transactions, currencySymbol, t }: any) => {
                 <div className="form-field"><label>{t('start_date')}</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></div>
                 <div className="form-field"><label>{t('end_date')}</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></div>
             </div>
-            {report && <div className="report-summary">
+            
+            <div className="settings-group" style={{marginTop: '20px'}}>
+                <label style={{fontWeight: 500, display: 'block', marginBottom: '10px'}}>{t('tax_rate_label')} : {taxRate}%</label>
+                <input type="range" min="0" max="40" step="1" value={taxRate} onChange={e => setTaxRate(parseInt(e.target.value))} style={{width: '100%'}} />
+            </div>
+
+            {report && startDate && endDate && <div className="report-summary">
                 <h3>{t('report_summary')}</h3>
                 <div className="summary-item"><span>{t('total_income')}</span><span className="amount income">{currencySymbol}{report.income.toFixed(2)}</span></div>
                 <div className="summary-item"><span>{t('total_expense')}</span><span className="amount expense">{currencySymbol}{report.expense.toFixed(2)}</span></div>
                 <div className="summary-item"><span>{t('balance')}</span><span className="amount balance">{currencySymbol}{report.balance.toFixed(2)}</span></div>
+                <div className="summary-item" style={{borderTop: '2px solid #ccc', marginTop: '10px', paddingTop: '10px'}}>
+                    <span style={{fontWeight: 'bold'}}>{t('tax_due')} ({taxRate}%)</span>
+                    <span className="amount" style={{color: '#d35400'}}>{currencySymbol}{report.taxDue.toFixed(2)}</span>
+                </div>
+                
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px'}}>
+                     <button className="action-button" style={{marginBottom: 0, backgroundColor: '#34495e'}} onClick={saveReportToDb}>{t('save_report')}</button>
+                     <button className="action-button" style={{marginBottom: 0, backgroundColor: '#27ae60'}} onClick={downloadReport}>{t('download_csv')}</button>
+                     <button className="action-button" style={{marginBottom: 0, backgroundColor: '#2980b9'}} onClick={emailReport}>{t('send_email')}</button>
+                     <button className="action-button" style={{marginBottom: 0, backgroundColor: '#8e44ad'}} onClick={() => setShowTransactions(!showTransactions)}>
+                         {showTransactions ? t('hide_transactions') : t('view_transactions')}
+                     </button>
+                </div>
             </div>}
+            
+            {showTransactions && startDate && endDate && (
+                <div style={{marginTop: '30px'}}>
+                    <h3>{t('view_transactions')} ({filteredTransactions.length})</h3>
+                    <TransactionList transactions={filteredTransactions} currencySymbol={currencySymbol} onDelete={deleteTransaction} onValidate={validateTransaction} onEdit={handleEdit} t={t} />
+                </div>
+            )}
+
+            {/* Modals for editing transactions from the report list */}
+            <IncomeNumpadModal key={incomeOpen ? 'open-inc' : 'closed-inc'} isOpen={incomeOpen} onClose={handleClose} onSubmit={handleIncomeSubmit} initialData={selectedTx} title={t('edit_transaction')} currencySymbol={currencySymbol} categories={INCOME_CATEGORIES} t={t} />
+            <ExpenseModal key={expenseOpen ? 'open-exp' : 'closed-exp'} isOpen={expenseOpen} onClose={handleClose} onSubmit={handleExpenseSubmit} initialData={selectedTx} title={t('edit_transaction')} currencySymbol={currencySymbol} categories={EXPENSE_CATEGORIES} t={t} />
         </div>
     );
 });
@@ -384,6 +460,21 @@ function App() {
       if (!error) setTransactions(p => p.map(t => t.id === id ? { ...t, validated: newVal } : t));
   }, [transactions]);
 
+  const saveTaxReport = useCallback(async (report: TaxReport) => {
+      if (!supabase || !user) return;
+      const { error } = await supabase.from('tax_reports').insert({
+          user_id: user.id,
+          start_date: report.startDate,
+          end_date: report.endDate,
+          tax_rate: report.taxRate,
+          total_income: report.totalIncome,
+          total_expense: report.totalExpense,
+          tax_due: report.taxDue
+      });
+      if (error) alert('Failed to save report: ' + error.message);
+      else alert('Report saved successfully!');
+  }, [user]);
+
   const updateUser = useCallback(async (updatedUser: User) => {
       if (!supabase) return;
       const { error } = await supabase.from('profiles').upsert({ id: user!.id, ...appUserToDbProfile(updatedUser), updated_at: new Date().toISOString() });
@@ -413,7 +504,7 @@ function App() {
                 {view.page === 'expense' && <ExpensePage expenses={currentTotals.expense} addExpense={addTransaction} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} transactions={currentTransactions.filter(t => t.type === 'expense')} period={period} setPeriod={setPeriod} currencySymbol={currencySymbol} locale={locale} t={t} />}
                 {view.page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} currency={currency} setCurrency={setCurrency} lang={lang} setLang={setLang} fontSize={fontSize} setFontSize={setFontSize} t={t} />}
                 {view.page === 'profile' && <ProfilePage user={user} onUpdate={updateUser} t={t} />}
-                {view.page === 'tax' && <TaxPage transactions={transactions} currencySymbol={currencySymbol} t={t} />}
+                {view.page === 'tax' && <TaxPage transactions={transactions} currencySymbol={currencySymbol} updateTransaction={updateTransaction} deleteTransaction={deleteTransaction} validateTransaction={validateTransaction} onSaveReport={saveTaxReport} t={t} />}
             </main>
             <footer className="app-footer"><nav>
                 {['main', 'income', 'expense', 'tax', 'settings'].map(p => <button key={p} className={view.page === p ? 'active' : ''} onClick={() => setView({page: p as any})}><span>{t(p === 'main' ? 'home' : p)}</span></button>)}
