@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { ReactNode, ErrorInfo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, Component, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -11,7 +10,7 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -112,6 +111,7 @@ const ExpenseModal = React.memo(({ isOpen, onClose, onSubmit, initialData, title
 
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) { setFile(f); setBucket('invoices'); if (f.type.startsWith('image/')) fileToBase64(f).then(setPreview); else setPreview(f.name); } };
     const handleCam = useCallback((f: File) => { setFile(f); setBucket('receipts'); fileToBase64(f).then(setPreview); setCamOpen(false); }, []);
+    const handleCamClose = useCallback(() => setCamOpen(false), []);
     
     return ( <>
         <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><div className="modal-header"><h3>{title}</h3><button onClick={onClose} className="close-button">&times;</button></div>
@@ -124,7 +124,7 @@ const ExpenseModal = React.memo(({ isOpen, onClose, onSubmit, initialData, title
                 <button type="submit" className="action-button expense" style={{ marginTop: '20px' }}>{initialData ? t('update') : t('add_expense')}</button>
             </form>
         </div></div>
-        <CameraModal isOpen={camOpen} onClose={() => setCamOpen(false)} onCapture={handleCam} t={t} />
+        <CameraModal isOpen={camOpen} onClose={handleCamClose} onCapture={handleCam} t={t} />
     </> );
 });
 
