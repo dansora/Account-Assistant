@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -15,8 +16,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     super(props);
     this.state = { hasError: false, error: null };
   }
-
-  public state: ErrorBoundaryState;
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -125,7 +124,7 @@ const CameraModal = React.memo(({ isOpen, onClose, onCapture, t }: { isOpen: boo
     }, [isOpen, onClose]);
     const handleCapture = () => {
         if (videoRef.current) { const canvas = document.createElement('canvas'); canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight; canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
-            canvas.toBlob(blob => { if (blob) onCapture(new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' })); }, 'image/jpeg', 0.9);
+            canvas.toBlob(blob => { if (blob) onCapture(new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' })); }, 'image/jpeg', 0.9);
         }
     };
     if (!isOpen) return null;
@@ -304,34 +303,95 @@ const ExpensePage = React.memo(({ expenses, addExpense, updateTransaction, delet
 
 const ProfilePage = React.memo(({ user, onUpdate, onDeleteAccount, t }: any) => {
     const [data, setData] = useState<User>((user || {}) as User);
-    const handleChange = (e: any) => setData(p => ({ ...p, [e.target.id]: e.target.value }));
-    return ( <div className="page-content"><h2>{t('profile')}</h2><form className="profile-form" onSubmit={e => { e.preventDefault(); onUpdate(data); }}>
-        <div className="profile-header-section">
-            <div className="form-field"><label>{t('username')}</label><input id="username" value={data.username||''} onChange={handleChange} /></div>
-            <div className="form-field"><label>{t('email_address')}</label><input id="email" value={data.email||''} disabled /></div>
-        </div>
-        <h3 className="form-section-header">Personal Information</h3>
-        <div className="form-row-2">
-            <div className="form-field"><label>{t('first_name')}</label><input id="firstName" value={data.firstName||''} onChange={handleChange} /></div>
-            <div className="form-field"><label>{t('last_name')}</label><input id="lastName" value={data.lastName||''} onChange={handleChange} /></div>
-        </div>
-        <div className="form-field"><label>{t('phone_number')}</label><input id="phone" value={data.phone||''} onChange={handleChange} /></div>
-        
-        <h3 className="form-section-header">Company Details</h3>
-        <div className="form-field"><label>{t('company_name')}</label><input id="companyName" value={data.companyName||''} onChange={handleChange} /></div>
-        <div className="form-field"><label>{t('address')}</label><textarea id="address" value={data.address||''} onChange={handleChange} rows={2} /></div>
-        <div className="form-field"><label>{t('vat_rate')} (%)</label><input id="vatRate" type="number" min="0" max="25" value={data.vatRate||0} onChange={e => setData({...data, vatRate: parseFloat(e.target.value)})} /></div>
-        
-        <h3 className="form-section-header">Bank Information</h3>
-        <div className="form-field"><label>{t('bank_name')}</label><input id="bankName" value={data.bankName||''} onChange={handleChange} /></div>
-        <div className="form-field"><label>{t('account_holder_name')}</label><input id="accountHolderName" value={data.accountHolderName||''} onChange={handleChange} /></div>
-        <div className="form-field"><label>{t('account_number')}</label><input id="accountNumber" value={data.accountNumber||''} onChange={handleChange} /></div>
-        <div className="form-field"><label>{t('sort_code')}</label><input id="sortCode" value={data.sortCode||''} onChange={handleChange} /></div>
-        <div className="form-field"><label>{t('iban')}</label><input id="iban" value={data.iban||''} onChange={handleChange} /></div>
+    const [camOpen, setCamOpen] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-        <button type="submit" className="action-button" style={{marginTop:'20px'}}>{t('update_profile')}</button>
-        <button type="button" className="action-button delete-account-btn" onClick={onDeleteAccount}>{t('delete_account')}</button>
-    </form></div> );
+    const handleChange = (e: any) => setData(p => ({ ...p, [e.target.id]: e.target.value }));
+    
+    const handleAvatarUpload = async (file: File) => {
+        if (!supabase) return;
+        const ext = file.name.split('.').pop();
+        const path = `avatar_${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file);
+        if (uploadError) { alert('Upload failed: ' + uploadError.message); return; }
+        
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+        setData(p => ({ ...p, avatar: publicUrl }));
+        onUpdate({ ...data, avatar: publicUrl }); // Auto-save after upload
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleAvatarUpload(file);
+    };
+
+    const handleLogout = async () => {
+        if (!supabase) return;
+        await supabase.auth.signOut();
+    };
+
+    return ( 
+        <div className="page-content">
+            <h2>{t('profile')}</h2>
+            
+            <div className="profile-avatar-container">
+                {data.avatar ? 
+                    <img src={data.avatar} alt="Profile" className="profile-avatar" /> : 
+                    <div className="avatar-placeholder">👤</div>
+                }
+                <div className="avatar-actions">
+                    <button type="button" className="avatar-btn" onClick={() => setCamOpen(true)}>📷 {t('take_photo')}</button>
+                    <button type="button" className="avatar-btn" onClick={() => fileRef.current?.click()}>📁 {t('upload_document')}</button>
+                    <input type="file" ref={fileRef} onChange={handleFileChange} accept="image/*" style={{display:'none'}} />
+                </div>
+            </div>
+
+            <form className="profile-form" onSubmit={e => { e.preventDefault(); onUpdate(data); }}>
+                <div className="profile-header-section">
+                    <div className="form-field"><label>{t('username')}</label><input id="username" value={data.username||''} onChange={handleChange} /></div>
+                    <div className="form-field"><label>{t('email_address')}</label><input id="email" value={data.email||''} disabled /></div>
+                </div>
+                <h3 className="form-section-header">Personal Information</h3>
+                <div className="form-row-2">
+                    <div className="form-field"><label>{t('first_name')}</label><input id="firstName" value={data.firstName||''} onChange={handleChange} /></div>
+                    <div className="form-field"><label>{t('last_name')}</label><input id="lastName" value={data.lastName||''} onChange={handleChange} /></div>
+                </div>
+                <div className="form-field"><label>{t('phone_number')}</label><input id="phone" value={data.phone||''} onChange={handleChange} /></div>
+                
+                <h3 className="form-section-header">Company Details</h3>
+                <div className="form-field"><label>{t('company_name')}</label><input id="companyName" value={data.companyName||''} onChange={handleChange} /></div>
+                <div className="form-field"><label>{t('address')}</label><textarea id="address" value={data.address||''} onChange={handleChange} rows={2} /></div>
+                <div className="form-field"><label>{t('vat_rate')} (%)</label><input id="vatRate" type="number" min="0" max="25" value={data.vatRate||0} onChange={e => setData({...data, vatRate: parseFloat(e.target.value)})} /></div>
+                
+                <h3 className="form-section-header">Bank Information</h3>
+                <div className="form-field"><label>{t('bank_name')}</label><input id="bankName" value={data.bankName||''} onChange={handleChange} /></div>
+                <div className="form-field"><label>{t('account_holder_name')}</label><input id="accountHolderName" value={data.accountHolderName||''} onChange={handleChange} /></div>
+                <div className="form-field"><label>{t('account_number')}</label><input id="accountNumber" value={data.accountNumber||''} onChange={handleChange} /></div>
+                <div className="form-field"><label>{t('sort_code')}</label><input id="sortCode" value={data.sortCode||''} onChange={handleChange} /></div>
+                <div className="form-field"><label>{t('iban')}</label><input id="iban" value={data.iban||''} onChange={handleChange} /></div>
+
+                <button type="submit" className="action-button" style={{marginTop:'20px'}}>{t('update_profile')}</button>
+                <button type="button" className="action-button logout-btn" onClick={handleLogout}>{t('logout')}</button>
+                <button type="button" className="action-button delete-account-btn" onClick={() => setIsDeleteModalOpen(true)}>{t('delete_account')}</button>
+            </form>
+
+            <CameraModal isOpen={camOpen} onClose={() => setCamOpen(false)} onCapture={(f) => { handleAvatarUpload(f); setCamOpen(false); }} t={t} />
+            
+            {isDeleteModalOpen && (
+                <div className="delete-modal-overlay">
+                    <div className="delete-modal-content">
+                        <h3>{t('delete_account_confirm_title')}</h3>
+                        <p>{t('delete_account_confirm_body')}</p>
+                        <div className="delete-modal-actions">
+                            <button className="modal-btn cancel" onClick={() => setIsDeleteModalOpen(false)}>{t('cancel')}</button>
+                            <button className="modal-btn confirm" onClick={() => { setIsDeleteModalOpen(false); onDeleteAccount(); }}>{t('confirm_delete')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div> 
+    );
 });
 
 const SettingsPage = React.memo(({ theme, setTheme, currency, setCurrency, lang, setLang, fontSize, setFontSize, onViewChange, t }: any) => (
@@ -586,8 +646,7 @@ function App() {
 
   const deleteAccount = useCallback(async () => {
       if (!supabase || !user) return;
-      if (!window.confirm(t('delete_account_confirm'))) return;
-      
+      // Confirmation handled by modal in ProfilePage, this function is called after confirmation
       try {
           const { error: txError } = await supabase.from('transactions').delete().eq('user_id', user.id);
           if (txError) throw txError;
@@ -619,7 +678,6 @@ function App() {
                 <div className="header-left"><h1>Account Assistant</h1></div>
                 <div className="header-right">
                     <button className="profile-icon-btn" onClick={() => setView({page: 'profile'})} title={t('profile')}>👤</button>
-                    <button className="logout-icon-btn" onClick={() => supabase.auth.signOut()} title={t('logout')}>🚪</button>
                 </div>
             </header>
             <main>
