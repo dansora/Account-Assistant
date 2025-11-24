@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -10,11 +10,8 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: React.ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -278,7 +275,6 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
     const [startDate, setStartDate] = useState(''); const [endDate, setEndDate] = useState('');
     const [taxRate, setTaxRate] = useState(0);
     const [showTransactions, setShowTransactions] = useState(false);
-    const [modalMode, setModalMode] = useState<'create'|'edit'>('create');
     const [selectedTx, setSelectedTx] = useState<Transaction|null>(null);
     const [incomeOpen, setIncomeOpen] = useState(false);
     const [expenseOpen, setExpenseOpen] = useState(false);
@@ -295,15 +291,14 @@ const TaxPage = React.memo(({ transactions, currencySymbol, updateTransaction, d
     }, [transactions, startDate, endDate]);
 
     const report = useMemo(() => {
-        const inc = filteredTransactions.filter((t:any) => t.type==='income').reduce((a:number,b:any)=>a+b.amount,0);
-        const exp = filteredTransactions.filter((t:any) => t.type==='expense').reduce((a:number,b:any)=>a+b.amount,0);
+        const inc = filteredTransactions.filter((tx:any) => tx.type==='income').reduce((a:number,b:any)=>a+b.amount,0);
+        const exp = filteredTransactions.filter((tx:any) => tx.type==='expense').reduce((a:number,b:any)=>a+b.amount,0);
         const taxDue = (inc - exp) * (taxRate / 100);
         return { income: inc, expense: exp, balance: inc - exp, taxDue: taxDue > 0 ? taxDue : 0, count: filteredTransactions.length };
     }, [filteredTransactions, taxRate]);
 
     const handleEdit = (tx: Transaction) => { 
         setSelectedTx(tx); 
-        setModalMode('edit'); 
         if (tx.type === 'income') setIncomeOpen(true); else setExpenseOpen(true);
     };
     
