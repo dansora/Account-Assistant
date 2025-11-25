@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useEffect, useMemo, useRef, Component, type ReactNode, type ErrorInfo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -11,7 +10,7 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -67,23 +66,25 @@ const SimpleBarChart = React.memo(({ income, expense, balance, t }: { income: nu
     const maxValue = Math.max(income, expense, Math.abs(balance), 1);
     
     return (
-        <div className="chart-container">
-            <h3>{t('financial_summary')}</h3>
-            <svg className="simple-chart" viewBox="0 0 100 60" preserveAspectRatio="none">
-                {data.map((d, i) => {
-                    const barHeight = Math.max(0, (Math.abs(d.value) / maxValue) * 50);
-                    const y = 55 - barHeight;
-                    return (
-                        <g key={d.label}>
-                            <rect x={10 + i * 30} y={y} width="20" height={barHeight} fill={d.color} rx="2" className="chart-bar" />
-                            <text x={20 + i * 30} y={y - 2} className="chart-text">{d.value.toFixed(0)}</text>
-                            <text x={20 + i * 30} y="65" className="chart-label" style={{fontSize: '6px'}}>{d.label}</text>
-                        </g>
-                    );
-                })}
-                <line x1="0" y1="55" x2="100" y2="55" stroke="#eee" strokeWidth="1" />
-            </svg>
-        </div>
+        <>
+            <h3 className="chart-section-title">{t('financial_summary')}</h3>
+            <div className="chart-container">
+                <svg className="simple-chart" viewBox="0 0 100 60" preserveAspectRatio="none">
+                    {data.map((d, i) => {
+                        const barHeight = Math.max(0, (Math.abs(d.value) / maxValue) * 50);
+                        const y = 55 - barHeight;
+                        return (
+                            <g key={d.label}>
+                                <rect x={10 + i * 30} y={y} width="20" height={barHeight} fill={d.color} rx="2" className="chart-bar" />
+                                <text x={20 + i * 30} y={y - 2} className="chart-text">{d.value.toFixed(0)}</text>
+                                <text x={20 + i * 30} y="65" className="chart-label" style={{fontSize: '6px'}}>{d.label}</text>
+                            </g>
+                        );
+                    })}
+                    <line x1="0" y1="55" x2="100" y2="55" stroke="#eee" strokeWidth="1" />
+                </svg>
+            </div>
+        </>
     );
 });
 
