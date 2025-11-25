@@ -104,9 +104,13 @@ main { flex-grow: 1; overflow-y: auto; padding: 20px; padding-bottom: calc(var(-
 
 /* Chart Styles */
 .chart-section-title {
-    font-size: 1.2rem;
-    color: var(--text-dark);
-    margin-bottom: 10px;
+    font-size: 1.5rem; /* Matches main page headers */
+    color: var(--primary-blue-dark);
+    margin-bottom: 20px;
+    margin-top: 40px; /* Increased spacing */
+    border-bottom: 2px solid var(--primary-blue-light);
+    padding-bottom: 5px;
+    display: block;
 }
 .chart-container {
     background: var(--card-bg);
@@ -117,11 +121,12 @@ main { flex-grow: 1; overflow-y: auto; padding: 20px; padding-bottom: calc(var(-
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%; /* Ensure full width on mobile */
 }
 .simple-chart {
     width: 100%;
-    max-width: 400px;
-    height: 200px;
+    max-width: 500px; /* Slightly larger max width */
+    height: auto;
 }
 .chart-bar { transition: height 0.5s ease, y 0.5s ease; }
 .chart-text { font-size: 10px; fill: var(--text-dark); font-weight: bold; text-anchor: middle; }
@@ -390,7 +395,7 @@ body.dark-theme .theme-selector button:hover { background-color: rgba(255,255,25
 /* Form Field */
 .form-field { display: flex; flex-direction: column; }
 .form-field label { margin-bottom: 5px; font-size: 0.9rem; font-weight: 500; color: var(--text-dark); }
-.form-field input, .form-field textarea, .form-field select { width: 100%; padding: 12px; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-dark); transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; }
+.form-field input, .form-field textarea, .form-field select { width: 100%; padding: 12px; font-size: 16px; /* Prevents iOS zoom */ border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-dark); transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; }
 .form-field input:focus, .form-field textarea:focus, .form-field select:focus { outline: none; border-color: var(--primary-blue-dark); box-shadow: 0 0 0 2px rgba(47, 128, 237, 0.2); }
 .form-field textarea { resize: vertical; min-height: 80px; }
 .form-section-header { font-size: 1rem; font-weight: 600; color: var(--text-dark); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
@@ -427,4 +432,9 @@ body.dark-theme .category-percentage { color: #bbb; }
   .card-value .amount { font-size: 1.8rem; }
   .date-selector-container { flex-direction: column; gap: 15px; }
   .profile-header-section, .form-row-2 { grid-template-columns: 1fr; }
+  
+  /* Mobile Friendly Buttons */
+  .action-button, .numpad-button, .app-footer button {
+      min-height: 48px; /* Improve touch targets */
+  }
 }

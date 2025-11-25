@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type ErrorInfo } from 'react';
+import React, { Component, useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
@@ -10,7 +10,7 @@ import { currencyMap, languageToLocaleMap, translations, fileToBase64, dbTransac
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -65,23 +65,29 @@ const SimpleBarChart = React.memo(({ income, expense, balance, t }: { income: nu
     ];
     const maxValue = Math.max(income, expense, Math.abs(balance), 1);
     
+    // Adjusted viewBox height to 80 to allow room for labels at the bottom and values at the top
+    const chartHeight = 80;
+    const barBaseY = 65;
+    const maxBarH = 50;
+
     return (
         <>
             <h3 className="chart-section-title">{t('financial_summary')}</h3>
             <div className="chart-container">
-                <svg className="simple-chart" viewBox="0 0 100 60" preserveAspectRatio="none">
+                <svg className="simple-chart" viewBox={`0 0 100 ${chartHeight}`} preserveAspectRatio="none">
                     {data.map((d, i) => {
-                        const barHeight = Math.max(0, (Math.abs(d.value) / maxValue) * 50);
-                        const y = 55 - barHeight;
+                        // Calculate bar height relative to max value
+                        const barHeight = Math.max(0, (Math.abs(d.value) / maxValue) * maxBarH);
+                        const y = barBaseY - barHeight;
                         return (
                             <g key={d.label}>
                                 <rect x={10 + i * 30} y={y} width="20" height={barHeight} fill={d.color} rx="2" className="chart-bar" />
-                                <text x={20 + i * 30} y={y - 2} className="chart-text">{d.value.toFixed(0)}</text>
-                                <text x={20 + i * 30} y="65" className="chart-label" style={{fontSize: '6px'}}>{d.label}</text>
+                                <text x={20 + i * 30} y={y - 3} className="chart-text" style={{fontSize: '5px'}}>{d.value.toFixed(0)}</text>
+                                <text x={20 + i * 30} y={barBaseY + 8} className="chart-label" style={{fontSize: '5px'}}>{d.label}</text>
                             </g>
                         );
                     })}
-                    <line x1="0" y1="55" x2="100" y2="55" stroke="#eee" strokeWidth="1" />
+                    <line x1="0" y1={barBaseY} x2="100" y2={barBaseY} stroke="#eee" strokeWidth="1" />
                 </svg>
             </div>
         </>
